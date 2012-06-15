@@ -28,6 +28,12 @@ main_window::main_window(void):
     connect(vsh_menu->addAction("&Load from file..."), SIGNAL(triggered()), this, SLOT(load_vsh()));
     connect(fsh_menu->addAction("&Load from file..."), SIGNAL(triggered()), this, SLOT(load_fsh()));
 
+    connect(vsh_menu->addAction("&Save to file..."), SIGNAL(triggered()), this, SLOT(save_vsh()));
+    connect(fsh_menu->addAction("&Save to file..."), SIGNAL(triggered()), this, SLOT(save_fsh()));
+
+    vsh_menu->addSeparator();
+    fsh_menu->addSeparator();
+
     QAction *vsh_appl_action = vsh_menu->addAction("&Apply");
     QAction *fsh_appl_action = fsh_menu->addAction("&Apply");
     connect(vsh_appl_action, SIGNAL(triggered()), this, SLOT(apply_vsh()));
@@ -135,6 +141,16 @@ void main_window::load_vsh(void)
 void main_window::load_fsh(void)
 {
     load_sh(fsh_edit, QString("Open fragment shader source file"));
+}
+
+void main_window::save_vsh(void)
+{
+    save_sh(vsh_edit, QString("Save vertex shader"));
+}
+
+void main_window::save_fsh(void)
+{
+    save_sh(fsh_edit, QString("Save fragment shader"));
 }
 
 
@@ -387,6 +403,32 @@ void main_window::load_sh(QPlainTextEdit *edit, const QString &sel_title)
 
     delete buf;
 }
+
+void main_window::save_sh(QPlainTextEdit *edit, const QString &sel_title)
+{
+    QString out = QFileDialog::getSaveFileName(this, sel_title);
+    if (out.isEmpty())
+        return;
+
+    QByteArray out_arr = out.toUtf8();
+
+    FILE *fp = fopen(out_arr.constData(), "w");
+    if (fp == NULL)
+    {
+        QMessageBox::critical(this, "Error writing file", QString("Could not open the given file: ") + strerror(errno));
+        return;
+    }
+
+    QByteArray in_arr = edit->toPlainText().toUtf8();
+
+    long b2write = strlen(in_arr.constData());
+    long bwritten = fwrite(in_arr.constData(), 1, b2write, fp);
+    fclose(fp);
+
+    if (bwritten < b2write)
+        QMessageBox::critical(this, "Error writing file", QString("An error occured while writing to the given file: ") + strerror(errno));
+}
+
 
 void main_window::update_textures(void)
 {

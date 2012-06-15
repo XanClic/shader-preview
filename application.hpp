@@ -20,6 +20,8 @@ class main_window: public QWidget
     public slots:
         void load_vsh(void);
         void load_fsh(void);
+        void save_vsh(void);
+        void save_fsh(void);
         void load_tex(void);
         void apply_vsh(void);
         void apply_fsh(void);
@@ -35,6 +37,7 @@ class main_window: public QWidget
         QList<uniform *> *uniforms;
 
         void load_sh(QPlainTextEdit *edit, const QString &sel_title);
+        void save_sh(QPlainTextEdit *edit, const QString &sel_title);
         void update_textures(void);
 };
 
