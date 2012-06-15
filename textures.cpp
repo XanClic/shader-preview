@@ -62,7 +62,8 @@ static GLuint load_bmp_texture(const char *path)
 
     int i = 0, o = 0;
 
-    if (neg_h)
+    // I have absolutely no clue, why this is the wrong way round
+    if (!neg_h)
     {
         for (int y = 0; y < h; y++)
         {
@@ -77,22 +78,16 @@ static GLuint load_bmp_texture(const char *path)
     }
     else
     {
-        o = w * h * 4;
-
         for (int y = h - 1; y >= 0; y--)
         {
             for (int x = 0; x < w; x++)
             {
-                int b = content[i++];
-                int g = content[i++];
-                int r = content[i++];
-                int a = content[i++];
+                int o = (y * w + x) * 4;
 
-
-                buf[--o] = a;
-                buf[--o] = r;
-                buf[--o] = g;
-                buf[--o] = b;
+                buf[o++] = content[i++];
+                buf[o++] = content[i++];
+                buf[o++] = content[i++];
+                buf[o++] = (bpp == 32) ? content[i++] : 0;
             }
         }
     }
