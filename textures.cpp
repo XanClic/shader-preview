@@ -62,7 +62,6 @@ static GLuint load_bmp_texture(const char *path)
 
     int i = 0, o = 0;
 
-    // I have absolutely no clue, why this is the wrong way round
     if (!neg_h)
     {
         for (int y = 0; y < h; y++)
