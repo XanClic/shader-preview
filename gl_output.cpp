@@ -74,6 +74,24 @@ void gl_output::update_uniform(uniform *u)
         case uniform::t_float:
             glUniform1f(u->id, u->proc_value.value<float>());
             break;
+        case uniform::t_vec2:
+        {
+            QVector2D val = u->proc_value.value<QVector2D>();
+            glUniform2f(u->id, val.x(), val.y());
+            break;
+        }
+        case uniform::t_vec3:
+        {
+            QVector3D val = u->proc_value.value<QVector3D>();
+            glUniform3f(u->id, val.x(), val.y(), val.z());
+            break;
+        }
+        case uniform::t_vec4:
+        {
+            QVector4D val = u->proc_value.value<QVector4D>();
+            glUniform4f(u->id, val.x(), val.y(), val.z(), val.w());
+            break;
+        }
         case uniform::t_unk:
         default:
             break;
