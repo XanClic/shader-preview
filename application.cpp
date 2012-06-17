@@ -21,6 +21,13 @@ main_window::main_window(void):
 {
     setWindowTitle("Shader Preview");
 
+
+    config_page = new QWidget;
+    render_page = new QWidget;
+
+    tabs = new QTabWidget;
+
+
     QMenuBar *menu = new QMenuBar(this);
 
     QMenu *shader_menu = new QMenu("&Shader");
@@ -34,16 +41,6 @@ main_window::main_window(void):
     connect(vsh_menu->addAction("&Save to file..."), SIGNAL(triggered()), this, SLOT(save_vsh()));
     connect(fsh_menu->addAction("&Save to file..."), SIGNAL(triggered()), this, SLOT(save_fsh()));
 
-    vsh_menu->addSeparator();
-    fsh_menu->addSeparator();
-
-    QAction *vsh_appl_action = vsh_menu->addAction("&Apply");
-    QAction *fsh_appl_action = fsh_menu->addAction("&Apply");
-    connect(vsh_appl_action, SIGNAL(triggered()), this, SLOT(apply_vsh()));
-    connect(fsh_appl_action, SIGNAL(triggered()), this, SLOT(apply_fsh()));
-    connect(vsh_appl_action, SIGNAL(triggered()), this, SLOT(reload_uniforms()));
-    connect(fsh_appl_action, SIGNAL(triggered()), this, SLOT(reload_uniforms()));
-
     shader_menu->addMenu(vsh_menu);
     shader_menu->addMenu(fsh_menu);
 
@@ -56,8 +53,9 @@ main_window::main_window(void):
     menu->addMenu(shader_menu);
     menu->addMenu(textures_menu);
 
-    vsh_edit = new QPlainTextEdit(this);
-    fsh_edit = new QPlainTextEdit(this);
+
+    vsh_edit = new QPlainTextEdit(config_page);
+    fsh_edit = new QPlainTextEdit(config_page);
 
     vsh_edit->setFont(QFont("Courier New"));
     fsh_edit->setFont(QFont("Courier New"));
@@ -65,21 +63,18 @@ main_window::main_window(void):
     vsh_edit->setLineWrapMode(QPlainTextEdit::NoWrap);
     fsh_edit->setLineWrapMode(QPlainTextEdit::NoWrap);
 
-    vsh_appl = new QPushButton("Apply &vertex shader", this);
-    fsh_appl = new QPushButton("Apply &fragment shader", this);
-    connect(vsh_appl, SIGNAL(clicked()), this, SLOT(apply_vsh()));
-    connect(fsh_appl, SIGNAL(clicked()), this, SLOT(apply_fsh()));
-    connect(vsh_appl, SIGNAL(clicked()), this, SLOT(reload_uniforms()));
-    connect(fsh_appl, SIGNAL(clicked()), this, SLOT(reload_uniforms()));
+    sh_apply = new QPushButton("Appl&y shaders", config_page);
+    connect(sh_apply, SIGNAL(clicked()), this, SLOT(apply_sh()));
+    connect(sh_apply, SIGNAL(clicked()), this, SLOT(reload_uniforms()));
 
-    uniform_widget = new popup_tree_widget(this);
+    uniform_widget = new popup_tree_widget(config_page);
     uniform_widget->setColumnCount(2);
     uniform_widget->setHeaderLabels(QStringList({ "Uniform", "Value" }));
 
     uniform_widget->item_popup_menu = new QMenu;
     connect(uniform_widget->item_popup_menu->addAction("&Set value"), SIGNAL(triggered()), this, SLOT(set_uniform_value()));
 
-    texture_widget = new popup_tree_widget(this);
+    texture_widget = new popup_tree_widget(config_page);
     texture_widget->setColumnCount(2);
     texture_widget->setHeaderLabels(QStringList({ "File", "TMU" }));
 
@@ -89,30 +84,44 @@ main_window::main_window(void):
     texture_widget->bg_popup_menu = new QMenu;
     connect(texture_widget->bg_popup_menu->addAction("&Load new texture"), SIGNAL(triggered()), this, SLOT(load_tex()));
 
-    render = new gl_output(this);
 
-    QHBoxLayout *rnd_tex = new QHBoxLayout;
+    render = new gl_output(render_page);
 
-    rnd_tex->addWidget(texture_widget);
-    rnd_tex->addWidget(render);
 
-    rnd_tex->setStretchFactor(texture_widget, 0);
-    rnd_tex->setStretchFactor(render, 1);
+    QGridLayout *src_layout = new QGridLayout;
 
-    QGridLayout *layout = new QGridLayout;
+    src_layout->addWidget(vsh_edit, 0, 0);
+    src_layout->addWidget(fsh_edit, 0, 1);
+    src_layout->addWidget(sh_apply, 1, 0, 1, 2);
+
+    QHBoxLayout *uni_layout = new QHBoxLayout;
+
+    uni_layout->addWidget(uniform_widget);
+    uni_layout->addWidget(texture_widget);
+
+    QVBoxLayout *config_layout = new QVBoxLayout;
+
+    config_layout->addLayout(src_layout);
+    config_layout->addLayout(uni_layout);
+
+    config_page->setLayout(config_layout);
+
+
+    QVBoxLayout *render_layout = new QVBoxLayout;
+
+    render_layout->addWidget(render);
+
+    render_page->setLayout(render_layout);
+
+
+    tabs->addTab(render_page, "Result");
+    tabs->addTab(config_page, "Config");
+
+
+    QVBoxLayout *layout = new QVBoxLayout;
 
     layout->setMenuBar(menu);
-
-    layout->addWidget(vsh_edit, 0, 0);
-    layout->addWidget(vsh_appl, 1, 0);
-    layout->addWidget(fsh_edit, 0, 1);
-    layout->addWidget(fsh_appl, 1, 1);
-    layout->addWidget(uniform_widget, 0, 2, 2, 1);
-    layout->addLayout(rnd_tex, 2, 0, 1, 3);
-
-    layout->setRowStretch(0, 0);
-    layout->setRowStretch(1, 0);
-    layout->setRowStretch(2, 1);
+    layout->addWidget(tabs);
 
     setLayout(layout);
 
@@ -132,8 +141,7 @@ main_window::~main_window(void)
 
     delete vsh_edit;
     delete fsh_edit;
-    delete vsh_appl;
-    delete fsh_appl;
+    delete sh_apply;
 }
 
 
@@ -216,13 +224,9 @@ void main_window::assign_tex(void)
 }
 
 
-void main_window::apply_vsh(void)
+void main_window::apply_sh(void)
 {
     render->upload_vsh(vsh_edit->toPlainText());
-}
-
-void main_window::apply_fsh(void)
-{
     render->upload_fsh(fsh_edit->toPlainText());
 }
 
