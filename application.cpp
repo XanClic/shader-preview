@@ -7,11 +7,14 @@
 #include <QtGui>
 
 #include "application.hpp"
+#include "dialogs.hpp"
 #include "gl_output.hpp"
 #include "popup_tree.hpp"
 #include "textures.hpp"
 #include "uniforms.hpp"
 
+
+// FIXME: Memleaks
 
 main_window::main_window(void):
     QWidget(NULL)
@@ -62,8 +65,8 @@ main_window::main_window(void):
     vsh_edit->setLineWrapMode(QPlainTextEdit::NoWrap);
     fsh_edit->setLineWrapMode(QPlainTextEdit::NoWrap);
 
-    vsh_appl = new QPushButton("Apply &vertex shader");
-    fsh_appl = new QPushButton("Apply &fragment shader");
+    vsh_appl = new QPushButton("Apply &vertex shader", this);
+    fsh_appl = new QPushButton("Apply &fragment shader", this);
     connect(vsh_appl, SIGNAL(clicked()), this, SLOT(apply_vsh()));
     connect(fsh_appl, SIGNAL(clicked()), this, SLOT(apply_fsh()));
     connect(vsh_appl, SIGNAL(clicked()), this, SLOT(reload_uniforms()));
@@ -98,17 +101,18 @@ main_window::main_window(void):
 
     QGridLayout *layout = new QGridLayout;
 
-    layout->addWidget(menu, 0, 0, 1, 3);
-    layout->addWidget(vsh_edit, 1, 0);
-    layout->addWidget(vsh_appl, 2, 0);
-    layout->addWidget(fsh_edit, 1, 1);
-    layout->addWidget(fsh_appl, 2, 1);
-    layout->addWidget(uniform_widget, 1, 2, 2, 1);
-    layout->addLayout(rnd_tex, 3, 0, 1, 3);
+    layout->setMenuBar(menu);
 
+    layout->addWidget(vsh_edit, 0, 0);
+    layout->addWidget(vsh_appl, 1, 0);
+    layout->addWidget(fsh_edit, 0, 1);
+    layout->addWidget(fsh_appl, 1, 1);
+    layout->addWidget(uniform_widget, 0, 2, 2, 1);
+    layout->addLayout(rnd_tex, 2, 0, 1, 3);
+
+    layout->setRowStretch(0, 0);
     layout->setRowStretch(1, 0);
-    layout->setRowStretch(2, 0);
-    layout->setRowStretch(3, 1);
+    layout->setRowStretch(2, 1);
 
     setLayout(layout);
 
@@ -313,6 +317,8 @@ void main_window::set_uniform_value(void)
 
     uniform *u = static_cast<uniform *>(uniform_widget->sel_item->data(0, Qt::UserRole).value<void *>());
 
+    bool ok = false;
+
     if (u->type == "sampler2D")
     {
         QStringList textures;
@@ -336,34 +342,56 @@ void main_window::set_uniform_value(void)
             return;
         }
 
-        bool ok;
         QString chosen = QInputDialog::getItem(this, "Change uniform value", "New texture to be assigned to this sampler:", textures, 0, false, &ok);
 
         if (ok)
-        {
             *u = QVariant(chosen.remove(QRegExp(":.*$")).toInt());
-
-            render->update_uniform(u);
-
-            uniform_widget->sel_item->setText(1, u->value);
-        }
     }
     else if (u->proc_type == uniform::t_float)
     {
-        bool ok;
-        float val = QInputDialog::getDouble(this, "Change uniform value", "New floating point value to be assigned to this uniform:", 0., -HUGE_VAL, HUGE_VAL, 10, &ok);
+        float val = QInputDialog::getDouble(this, "Change uniform value", "New floating point value to be assigned to this uniform:", u->v<float>(), -HUGE_VAL, HUGE_VAL, 10, &ok);
 
         if (ok)
-        {
             *u = QVariant(val);
+    }
+    else if (u->proc_type == uniform::t_integer)
+    {
+        int val = QInputDialog::getInt(this, "Change uniform value", "New integer value to be assigned to this uniform:", u->v<int>(), INT_MIN, INT_MAX, 1, &ok);
 
-            render->update_uniform(u);
+        if (ok)
+            *u = QVariant(val);
+    }
+    else if (u->proc_type == uniform::t_vec2)
+    {
+        QVector2D val = vector_dialog::get_vec2(this, "Change uniform value", "New value to be assigned to this uniform vector:", u->v<QVector2D>(), &ok);
 
-            uniform_widget->sel_item->setText(1, u->value);
-        }
+        if (ok)
+            *u = QVariant(val);
+    }
+    else if (u->proc_type == uniform::t_vec3)
+    {
+        QVector3D val = vector_dialog::get_vec3(this, "Change uniform value", "New value to be assigned to this uniform vector:", u->v<QVector3D>(), &ok);
+
+        if (ok)
+            *u = QVariant(val);
+    }
+    else if (u->proc_type == uniform::t_vec4)
+    {
+        QVector4D val = vector_dialog::get_vec4(this, "Change uniform value", "New value to be assigned to this uniform vector:", u->v<QVector4D>(), &ok);
+
+        if (ok)
+            *u = QVariant(val);
     }
     else
         QMessageBox::critical(this, "Change uniform value", "Unknown type “" + u->type + "” of uniform “" + u->name + "”.");
+
+
+    if (ok)
+    {
+        render->update_uniform(u);
+
+        uniform_widget->sel_item->setText(1, u->value);
+    }
 }
 
 
