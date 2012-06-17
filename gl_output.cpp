@@ -15,12 +15,10 @@ gl_output::gl_output(QWidget *parent):
     QGLWidget(parent),
     rotate_object(false)
 {
-    connect(QAbstractEventDispatcher::instance(), SIGNAL(aboutToBlock()), this, SLOT(idle()));
-}
+    refresh_timer.setInterval(1000 / 60);
+    connect(&refresh_timer, SIGNAL(timeout()), this, SLOT(updateGL()));
 
-void gl_output::idle(void)
-{
-    update();
+    refresh_timer.start();
 }
 
 
