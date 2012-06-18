@@ -273,6 +273,9 @@ void main_window::reload_uniforms(void)
 
         QString type = regex.cap(1);
 
+        if (type == "mat4")
+            continue;
+
         for (QString identifier: regex.cap(2).split(QRegExp("\\s*,\\s*"), QString::SkipEmptyParts))
         {
             uniform *nu = NULL;
