@@ -37,6 +37,7 @@ class gl_output: public QGLWidget
         QTimer refresh_timer;
         GLuint quad_vbo;
         GLuint vsh, fsh, prg;
+        GLint inv_mat_uniform;
         bool rotate_object;
         int rot_l_x, rot_l_y;
 
