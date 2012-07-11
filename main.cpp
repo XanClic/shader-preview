@@ -1,8 +1,9 @@
+#include <cstdio>
+
 #include <QApplication>
 #include <QTextCodec>
 
-#include "application.hpp"
-#include "gl_output.hpp"
+#include "main_window.hpp"
 
 
 int main(int argc, char *argv[])
@@ -11,9 +12,21 @@ int main(int argc, char *argv[])
 
     QApplication app(argc, argv);
 
-    main_window wnd_main;
-    wnd_main.resize(640, 480);
-    wnd_main.show();
+    int res;
 
-    return app.exec();
+    try
+    {
+        main_window wnd_main;
+        wnd_main.resize(800, 600);
+        wnd_main.show();
+
+        res = app.exec();
+    }
+    catch (int exc)
+    {
+        res = 1;
+        fprintf(stderr, "Caught barely-implemented exception #%i.\n", exc);
+    }
+
+    return res;
 }
