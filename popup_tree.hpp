@@ -3,7 +3,7 @@
 
 #include <QtGui>
 
-class popup_tree_widget: public QTreeWidget
+class popup_tree: public QTreeWidget
 {
     Q_OBJECT
 
@@ -11,10 +11,12 @@ class popup_tree_widget: public QTreeWidget
         QTreeWidgetItem *sel_item;
         QMenu *item_popup_menu, *bg_popup_menu;
 
-        popup_tree_widget(QWidget *parent);
+        popup_tree(QWidget *parent);
+        ~popup_tree(void);
 
     protected:
         void mousePressEvent(QMouseEvent *evt);
+        void contextMenuEvent(QContextMenuEvent *evt);
 };
 
 #endif
