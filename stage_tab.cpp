@@ -208,7 +208,7 @@ void stage_tab::scan_shaders(void)
     if (ogl_maj < 3)
     {
         vsh_src += "\nin vec4 gl_Vertex, gl_MultiTexCoord0, gl_Color, gl_Normal;";
-        // FIXME: gl_FragData[i]
+        // TODO: gl_FragData[i]
         fsh_src += "\nout vec4 gl_FragColor;";
     }
 
@@ -519,7 +519,8 @@ void stage_tab::bind_builtin(void)
         else
             u->transposed = false;
 
-        uniform_tree.sel_item->setText(1, "Built-in: " + t->name);
+        u->valstr = "Built-in: " + t->name;
+        uniform_tree.sel_item->setText(1, u->valstr);
     }
 }
 
