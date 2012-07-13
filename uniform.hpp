@@ -45,14 +45,16 @@ class uniform
             type_name##_uniform(void); \
             virtual ~type_name##_uniform(void) {} \
             void set(set_type v); \
+            set_type get(void); \
             virtual void assign(void); \
             save_type val; \
     }
 
 #define create_type_uniform_class(type) create_itype_uniform_class(type, const type &, type)
 
-create_type_uniform_class(int);
-create_type_uniform_class(float);
+create_itype_uniform_class(int, int, int);
+create_itype_uniform_class(float, float, float);
+
 create_type_uniform_class(vec2);
 create_type_uniform_class(vec3);
 create_type_uniform_class(vec4);

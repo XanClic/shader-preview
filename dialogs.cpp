@@ -34,7 +34,8 @@ vector_dialog::vector_dialog(QWidget *parent, const QString &title, const QStrin
         coord_layout->addWidget(&spin_boxes[i]);
 
     button_layout = new QHBoxLayout;
-    button_layout->addWidget(color_button);
+    if (color_button != NULL)
+        button_layout->addWidget(color_button);
     button_layout->addStretch(1);
     button_layout->addWidget(accept_button);
     button_layout->addWidget(reject_button);
@@ -87,6 +88,64 @@ void vector_dialog::get_color(void)
         if (dimension == 4)
             spin_boxes[3].setValue(col.alphaF());
     }
+}
+
+
+matrix_dialog::matrix_dialog(QWidget *parent, const QString &title, const QString &text, int dim):
+    QDialog(parent)
+{
+    dimension = dim;
+
+
+    setWindowTitle(title);
+
+    text_label = new QLabel(text, this);
+    spin_boxes = new QDoubleSpinBox[dim * dim];
+
+    for (int i = 0; i < dim * dim; i++)
+    {
+        spin_boxes[i].setDecimals(10);
+        spin_boxes[i].setRange(-HUGE_VAL, HUGE_VAL);
+    }
+
+    accept_button = new QPushButton("&OK", this);
+    reject_button = new QPushButton("&Cancel", this);
+
+
+    coord_layouts = new QHBoxLayout[dim];
+    for (int j = 0; j < dim; j++)
+        for (int i = 0; i < dim; i++)
+            coord_layouts[j].addWidget(&spin_boxes[j + i * 4]);
+
+    button_layout = new QHBoxLayout;
+    button_layout->addStretch(1);
+    button_layout->addWidget(accept_button);
+    button_layout->addWidget(reject_button);
+
+    top_layout = new QVBoxLayout;
+    top_layout->addWidget(text_label);
+    for (int i = 0; i < dim; i++)
+        top_layout->addLayout(&coord_layouts[i]);
+    top_layout->addStretch(1);
+    top_layout->addLayout(button_layout);
+
+    setLayout(top_layout);
+
+
+    connect(accept_button, SIGNAL(clicked()), this, SLOT(accept()));
+    connect(reject_button, SIGNAL(clicked()), this, SLOT(reject()));
+}
+
+matrix_dialog::~matrix_dialog(void)
+{
+    delete text_label;
+    delete[] spin_boxes;
+    delete accept_button;
+    delete reject_button;
+
+    delete[] coord_layouts;
+    delete button_layout;
+    delete top_layout;
 }
 
 
