@@ -54,7 +54,7 @@ sampler2d_uniform::sampler2d_uniform(void):
     uniform(uniform::t_sampler2d, "(nil)", NULL), val(NULL)
 {}
 
-void int_uniform::set(const int &v)
+void int_uniform::set(int v)
 {
     val = v;
     valstr = QString::number(v);
@@ -62,7 +62,7 @@ void int_uniform::set(const int &v)
     track = NULL;
 }
 
-void float_uniform::set(const float &v)
+void float_uniform::set(float v)
 {
     val = v;
     valstr = QString::number(v);
@@ -134,6 +134,52 @@ void sampler2d_uniform::set(managed_texture *v)
 {
     val = v;
     valstr = (v != NULL) ? v->name : "(nil)";
+}
+
+
+int int_uniform::get(void)
+{
+    return (track == NULL) ? val : *reinterpret_cast<const int *>(track);
+}
+
+float float_uniform::get(void)
+{
+    return (track == NULL) ? val : *reinterpret_cast<const float *>(track);
+}
+
+const vec2 &vec2_uniform::get(void)
+{
+    return (track == NULL) ? val : *reinterpret_cast<const vec2 *>(track);
+}
+
+const vec3 &vec3_uniform::get(void)
+{
+    return (track == NULL) ? val : *reinterpret_cast<const vec3 *>(track);
+}
+
+const vec4 &vec4_uniform::get(void)
+{
+    return (track == NULL) ? val : *reinterpret_cast<const vec4 *>(track);
+}
+
+const mat2 &mat2_uniform::get(void)
+{
+    return (track == NULL) ? val : *reinterpret_cast<const mat2 *>(track);
+}
+
+const mat3 &mat3_uniform::get(void)
+{
+    return (track == NULL) ? val : *reinterpret_cast<const mat3 *>(track);
+}
+
+const mat4 &mat4_uniform::get(void)
+{
+    return (track == NULL) ? val : *reinterpret_cast<const mat4 *>(track);
+}
+
+managed_texture *sampler2d_uniform::get(void)
+{
+    return val;
 }
 
 

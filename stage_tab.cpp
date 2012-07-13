@@ -445,7 +445,7 @@ void stage_tab::assign_uniform(void)
 
     if (u->type == uniform::t_int)
     {
-        int val = QInputDialog::getInt(this, "Change uniform value", "New integer value to be assigned to this uniform:", static_cast<int_uniform *>(u)->val, INT_MIN, INT_MAX, 1, &ok);
+        int val = QInputDialog::getInt(this, "Change uniform value", "New integer value to be assigned to this uniform:", static_cast<int_uniform *>(u)->get(), INT_MIN, INT_MAX, 1, &ok);
 
         if (ok)
             static_cast<int_uniform *>(u)->set(val);
@@ -468,31 +468,52 @@ void stage_tab::assign_uniform(void)
     }
     else if (u->type == uniform::t_float)
     {
-        float val = QInputDialog::getDouble(this, "Change uniform value", "New floating point value to be assigned to this uniform:", static_cast<float_uniform *>(u)->val, -HUGE_VAL, HUGE_VAL, 10, &ok);
+        float val = QInputDialog::getDouble(this, "Change uniform value", "New floating point value to be assigned to this uniform:", static_cast<float_uniform *>(u)->get(), -HUGE_VAL, HUGE_VAL, 10, &ok);
 
         if (ok)
             static_cast<float_uniform *>(u)->set(val);
     }
     else if (u->type == uniform::t_vec2)
     {
-        vec2 val = vector_dialog::get_vec2(this, "Change uniform value", "New value to be assigned to this uniform vector:", static_cast<vec2_uniform *>(u)->val, &ok);
+        vec2 val = vector_dialog::get_vec2(this, "Change uniform value", "New value to be assigned to this uniform vector:", static_cast<vec2_uniform *>(u)->get(), &ok);
 
         if (ok)
             static_cast<vec2_uniform *>(u)->set(val);
     }
     else if (u->type == uniform::t_vec3)
     {
-        vec3 val = vector_dialog::get_vec3(this, "Change uniform value", "New value to be assigned to this uniform vector:", static_cast<vec3_uniform *>(u)->val, &ok);
+        vec3 val = vector_dialog::get_vec3(this, "Change uniform value", "New value to be assigned to this uniform vector:", static_cast<vec3_uniform *>(u)->get(), &ok);
 
         if (ok)
             static_cast<vec3_uniform *>(u)->set(val);
     }
     else if (u->type == uniform::t_vec4)
     {
-        vec4 val = vector_dialog::get_vec4(this, "Change uniform value", "New value to be assigned to this uniform vector:", static_cast<vec4_uniform *>(u)->val, &ok);
+        vec4 val = vector_dialog::get_vec4(this, "Change uniform value", "New value to be assigned to this uniform vector:", static_cast<vec4_uniform *>(u)->get(), &ok);
 
         if (ok)
             static_cast<vec4_uniform *>(u)->set(val);
+    }
+    else if (u->type == uniform::t_mat2)
+    {
+        mat2 val = matrix_dialog::get_mat2(this, "Change uniform value", "New value to be assigned to this uniform matrix:", static_cast<mat2_uniform *>(u)->get(), &ok);
+
+        if (ok)
+            static_cast<mat2_uniform *>(u)->set(val);
+    }
+    else if (u->type == uniform::t_mat3)
+    {
+        mat3 val = matrix_dialog::get_mat3(this, "Change uniform value", "New value to be assigned to this uniform matrix:", static_cast<mat3_uniform *>(u)->get(), &ok);
+
+        if (ok)
+            static_cast<mat3_uniform *>(u)->set(val);
+    }
+    else if (u->type == uniform::t_mat4)
+    {
+        mat4 val = matrix_dialog::get_mat4(this, "Change uniform value", "New value to be assigned to this uniform matrix:", static_cast<mat4_uniform *>(u)->get(), &ok);
+
+        if (ok)
+            static_cast<mat4_uniform *>(u)->set(val);
     }
 
     if (ok)

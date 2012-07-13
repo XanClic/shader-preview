@@ -81,6 +81,83 @@ class vector_dialog: public QDialog
 };
 
 
+class matrix_dialog: public QDialog
+{
+    Q_OBJECT
+
+    public:
+        matrix_dialog(QWidget *parent, const QString &title, const QString &text, int dim);
+        ~matrix_dialog(void);
+
+        static mat2 get_mat2(QWidget *parent, const QString &title, const QString &text, const mat2 &init = mat2(vec2(1.f, 0.f), vec2(0.f, 1.f)), bool *ok = NULL)
+        {
+            matrix_dialog dial(parent, title, text, 2);
+
+            for (int i = 0; i < 4; i++)
+                dial.spin_boxes[i].setValue(init.d[i]);
+
+            if (ok != NULL)
+                *ok = dial.exec();
+            else
+                dial.exec();
+
+            mat2 ret;
+            for (int i = 0; i < 4; i++)
+                ret.d[i] = dial.spin_boxes[i].value();
+
+            return ret;
+        }
+
+        static mat3 get_mat3(QWidget *parent, const QString &title, const QString &text, const mat3 &init = mat3(vec3(1.f, 0.f, 0.f), vec3(0.f, 1.f, 0.f), vec3(0.f, 0.f, 1.f)), bool *ok = NULL)
+        {
+            matrix_dialog dial(parent, title, text, 3);
+
+            for (int i = 0; i < 9; i++)
+                dial.spin_boxes[i].setValue(init.d[i]);
+
+            if (ok != NULL)
+                *ok = dial.exec();
+            else
+                dial.exec();
+
+            mat3 ret;
+            for (int i = 0; i < 9; i++)
+                ret.d[i] = dial.spin_boxes[i].value();
+
+            return ret;
+        }
+
+        static mat4 get_mat4(QWidget *parent, const QString &title, const QString &text, const mat4 &init = mat4(vec4(1.f, 0.f, 0.f, 0.f), vec4(0.f, 1.f, 0.f, 0.f), vec4(0.f, 0.f, 1.f, 0.f), vec4(0.f, 0.f, 0.f, 1.f)), bool *ok = NULL)
+        {
+            matrix_dialog dial(parent, title, text, 4);
+
+            for (int i = 0; i < 16; i++)
+                dial.spin_boxes[i].setValue(init.d[i]);
+
+            if (ok != NULL)
+                *ok = dial.exec();
+            else
+                dial.exec();
+
+            mat4 ret;
+            for (int i = 0; i < 16; i++)
+                ret.d[i] = dial.spin_boxes[i].value();
+
+            return ret;
+        }
+
+
+    private:
+        QLabel *text_label;
+        QDoubleSpinBox *spin_boxes;
+        QPushButton *accept_button, *reject_button;
+        QHBoxLayout *coord_layouts, *button_layout;
+        QVBoxLayout *top_layout;
+
+        int dimension;
+};
+
+
 class texture_dialog: public QDialog
 {
     Q_OBJECT
