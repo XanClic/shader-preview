@@ -27,6 +27,7 @@ class main_window: public QWidget
         QWidget render_page;
         renderer render;
         QPushButton add_stage_btn;
+        QCheckBox scale_display_fbo;
 };
 
 #endif

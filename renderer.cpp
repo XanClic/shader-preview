@@ -21,7 +21,7 @@
 
 int ogl_maj, ogl_min;
 
-static unsigned common_depth;
+static unsigned common_depth, output_depth;
 static main_window *main_wnd;
 
 volatile bool gl_initialized = false;
@@ -73,7 +73,8 @@ static unsigned compile_shader(GLenum type, const QString &str)
 renderer::renderer(main_window *parent):
     QGLWidget(parent),
     rotate_object(false),
-    tex_bound(NULL)
+    tex_bound(NULL),
+    scale_display_fbo(false)
 {
     main_wnd = parent;
 
@@ -105,6 +106,7 @@ renderer::~renderer(void)
     free(mat_mem);
 
     glDeleteRenderbuffers(1, &common_depth);
+    glDeleteRenderbuffers(1, &output_depth);
     glDeleteBuffers(1, &tex_draw_buf);
 
 
@@ -136,11 +138,18 @@ void renderer::initializeGL(void)
 
     glGenRenderbuffers(1, &common_depth);
     glBindRenderbuffer(GL_RENDERBUFFER, common_depth);
-    // TODO: Variable resolution
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 1024, 1024);
+
+    glGenRenderbuffers(1, &output_depth);
+    glBindRenderbuffer(GL_RENDERBUFFER, output_depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
 
     if (ogl_maj >= 3)
     {
+        for (int i = 0; i < vattrs; i++)
+            glEnableVertexAttribArray(i); // FIXME
+
+
         glGenBuffers(1, &tex_draw_buf);
         glBindBuffer(GL_ARRAY_BUFFER, tex_draw_buf);
         glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(vec4), NULL, GL_STATIC_DRAW);
@@ -214,18 +223,39 @@ void renderer::resizeGL(int w, int h)
     projection->d[11] = -1.f;
     projection->d[14] = (2.f * .1f * 100.f) / (.1f - 100.f);
     projection->d[15] = 0.f;
+
+    for (stage_tab *st: main_wnd->stage_tabs)
+    {
+        if (st->used_in_display)
+        {
+            for (color_buffer *cb: *st->outputs)
+                cb->resize(width, height);
+
+            break;
+        }
+    }
+
+    glBindRenderbuffer(GL_RENDERBUFFER, output_depth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
 }
 
 void renderer::paintGL(void)
 {
-    bool enable_array[vattrs];
-
-    glViewport(0, 0, 1024, 1024);
+    if (!scale_display_fbo)
+        glViewport(0, 0, 1024, 1024);
 
     for (stage_tab *st: main_wnd->stage_tabs)
     {
         if (!st->ready_to_roll)
             continue;
+
+        if (scale_display_fbo)
+        {
+            if (st->used_in_display)
+                glViewport(0, 0, width, height);
+            else
+                glViewport(0, 0, 1024, 1024);
+        }
 
 
         glActiveTexture(GL_TEXTURE0);
@@ -250,18 +280,7 @@ void renderer::paintGL(void)
 
 
         if (ogl_maj >= 3)
-        {
-            memset(enable_array, 0, sizeof(enable_array));
-
-            for (vertex_attrib *va: st->vertices->attribs)
-                enable_array[va->id] = true;
-
-            for (int i = 0; i < vattrs; i++)
-                (enable_array[i] ? glEnableVertexAttribArray : glDisableVertexAttribArray)(i);
-
-
             glBindBuffer(GL_ARRAY_BUFFER, st->vertices->buffer);
-        }
         else
         {
             glDisableClientState(GL_VERTEX_ARRAY);
@@ -275,7 +294,10 @@ void renderer::paintGL(void)
         for (vertex_attrib *va: st->vertices->attribs)
         {
             if (ogl_maj >= 3)
-                glVertexAttribPointer(va->id, va->epv, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<void *>(ofs));
+            {
+                if (va->id >= 0)
+                    glVertexAttribPointer(va->id, va->epv, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<void *>(ofs));
+            }
             else
             {
                 if (va->name == "gl_Vertex")
@@ -320,9 +342,6 @@ void renderer::paintGL(void)
 
     if (ogl_maj >= 3)
     {
-        for (int i = 0; i < vattrs; i++)
-            ((i == static_cast<int>(tex_draw_vtx_attrib)) ? glEnableVertexAttribArray : glDisableVertexAttribArray)(i);
-
         glBindBuffer(GL_ARRAY_BUFFER, tex_draw_buf);
         glVertexAttribPointer(tex_draw_vtx_attrib, 4, GL_FLOAT, GL_FALSE, 0, NULL);
     }
@@ -393,11 +412,81 @@ void renderer::set_bound_texture(void)
     if (!ok || (mt == tex_bound))
         return;
 
+    if (scale_display_fbo)
+    {
+        for (stage_tab *st: main_wnd->stage_tabs)
+        {
+            for (color_buffer *cb: *st->outputs)
+            {
+                if (cb->mt == tex_bound) // pointer comparison should be OK (i.e., everything else would not)
+                {
+                    st->set_displayed(false);
+                    st->rpd.update_fbo(st);
+                    break;
+                }
+            }
+        }
+    }
+
     if (tex_bound != NULL)
         unuse_texture(tex_bound);
     use_texture(mt);
 
     tex_bound = mt;
+
+    if (scale_display_fbo)
+    {
+        for (stage_tab *st: main_wnd->stage_tabs)
+        {
+            for (color_buffer *cb: *st->outputs)
+            {
+                if (cb->mt == tex_bound)
+                {
+                    st->set_displayed(true);
+                    st->rpd.update_fbo(st);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void renderer::fbo_display_setting_changed(int new_state)
+{
+    if (new_state == Qt::Checked)
+    {
+        scale_display_fbo = true;
+
+        for (stage_tab *st: main_wnd->stage_tabs)
+        {
+            for (color_buffer *cb: *st->outputs)
+            {
+                if (cb->mt == tex_bound)
+                {
+                    st->set_displayed(true);
+                    st->rpd.update_fbo(st);
+                    break;
+                }
+            }
+        }
+    }
+    else
+    {
+        scale_display_fbo = false;
+
+        for (stage_tab *st: main_wnd->stage_tabs)
+        {
+            for (color_buffer *cb: *st->outputs)
+            {
+                if (cb->mt == tex_bound)
+                {
+                    st->set_displayed(false);
+                    st->rpd.update_fbo(st);
+                    break;
+                }
+            }
+        }
+    }
 }
 
 
@@ -477,6 +566,9 @@ bool render_stage::update_shaders(stage_tab *st)
         glDeleteProgram(nprg);
     }
 
+    int attribs;
+    glGetProgramiv(nprg, GL_ACTIVE_ATTRIBUTES, &attribs);
+
     glDeleteShader(vsh);
     glDeleteShader(fsh);
     if (gsh)
@@ -492,7 +584,10 @@ void render_stage::update_fbo(stage_tab *st)
 {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
 
-    glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, common_depth);
+    if (st->used_in_display)
+        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, output_depth);
+    else
+        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, common_depth);
 
 
     int bi = 0;

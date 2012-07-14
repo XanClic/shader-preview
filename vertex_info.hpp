@@ -12,12 +12,13 @@ class vertex_attrib
 {
     public:
         vertex_attrib(const QString &a_name): name(a_name) { epv = 0; }
+        virtual ~vertex_attrib(void) {}
 
         virtual const void *ptr(void) { return NULL; }
         virtual size_t len(void) { return 0; }
 
         QString name;
-        unsigned id;
+        int id;
         int epv; // elements per vertex
 };
 
@@ -26,6 +27,7 @@ class vertex_attrib
     { \
         public: \
             vertex_attrib_##type(const QString &name): vertex_attrib(name) { epv = e_p_v; } \
+            virtual ~vertex_attrib_##type(void) final override {} \
             virtual const void *ptr(void) final override { return values.constData(); } \
             virtual size_t len(void) final override { return values.size(); } \
             QVector<type> values; \

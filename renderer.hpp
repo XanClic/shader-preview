@@ -23,9 +23,11 @@ class renderer: public QGLWidget
         ~renderer(void);
 
         int tmus, vattrs;
+        int width, height;
 
     public slots:
         void set_bound_texture(void);
+        void fbo_display_setting_changed(int new_state);
 
     protected:
         void initializeGL(void);
@@ -50,7 +52,7 @@ class renderer: public QGLWidget
         unsigned tex_draw_buf, tex_draw_prg, tex_draw_tex_uniform, tex_draw_vtx_attrib;
         managed_texture *tex_bound;
 
-        int width, height;
+        bool scale_display_fbo;
 
         friend class main_window;
         friend class stage_tab;

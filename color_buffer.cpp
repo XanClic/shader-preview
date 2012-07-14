@@ -23,3 +23,12 @@ color_buffer::~color_buffer(void)
 
     remove_texture(mt);
 }
+
+
+void color_buffer::resize(int width, int height)
+{
+    glBindTexture(GL_TEXTURE_2D, id);
+    if (width  < 0) width  = 1024;
+    if (height < 0) height = 1024;
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F_ARB, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+}
