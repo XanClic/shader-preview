@@ -1,6 +1,7 @@
 #define GL_GLEXT_PROTOTYPES
 
 #include <cstdio>
+#include <cstdlib>
 
 #include <QtGui>
 
@@ -22,7 +23,7 @@ stage_tab::stage_tab(int sn, renderer *rdr, QWidget *parent):
     gsh_enable("Enable &geometry shader"), vtx_type(this),
     vertex_rendering_method(GL_QUADS), stage_number(sn),
     render(rdr),
-    ready_to_roll(false)
+    ready_to_roll(false), used_in_display(false)
 {
     vsh_edit.setFont(QFont("Courier New"));
     gsh_edit.setFont(QFont("Courier New"));
@@ -51,10 +52,11 @@ stage_tab::stage_tab(int sn, renderer *rdr, QWidget *parent):
     vertex_tree.item_popup_menu = new QMenu;
     connect(vertex_tree.item_popup_menu->addAction("&Set attribute value"), SIGNAL(triggered()), this, SLOT(set_vertex_attribute()));
     vertex_tree.item_popup_menu->addSeparator();
-    connect(vertex_tree.item_popup_menu->addAction("&Add vertex"), SIGNAL(triggered()), this, SLOT(add_vertex()));
+    connect(vertex_tree.item_popup_menu->addAction("&Insert vertex"), SIGNAL(triggered()), this, SLOT(add_vertex()));
+    connect(vertex_tree.item_popup_menu->addAction("&Remove vertex"), SIGNAL(triggered()), this, SLOT(remove_vertex()));
 
     vertex_tree.bg_popup_menu = new QMenu;
-    connect(vertex_tree.bg_popup_menu->addAction("&Add vertex"), SIGNAL(triggered()), this, SLOT(add_vertex()));
+    connect(vertex_tree.bg_popup_menu->addAction("&Insert vertex"), SIGNAL(triggered()), this, SLOT(add_vertex()));
 
 
     buffer_tree.setColumnCount(1);
@@ -122,14 +124,11 @@ stage_tab::stage_tab(int sn, renderer *rdr, QWidget *parent):
 
     scan_shaders();
 
-    vertex_attrib_vec4 *va = new vertex_attrib_vec4((ogl_maj >= 3) ? "vertex" : "gl_Vertex");
+    vertex_attrib_vec4 *va = static_cast<vertex_attrib_vec4 *>(vertices->attribs[0]);
     va->values.push_back(vec4(-1.f,  1.f, 0.f, 1.f));
     va->values.push_back(vec4(-1.f, -1.f, 0.f, 1.f));
     va->values.push_back(vec4( 1.f, -1.f, 0.f, 1.f));
     va->values.push_back(vec4( 1.f,  1.f, 0.f, 1.f));
-    vertices->attribs.push_back(va);
-
-    vertices->update_buffer();
 
     (*uniforms)[0]->track = render->projection;
     (*uniforms)[1]->track = render->modelview;
@@ -194,6 +193,20 @@ static uniform::utype get_type_from_string(const QString &str)
         return uniform::t_unknown;
 }
 
+static int get_type_elements_from_string(const QString &str)
+{
+    if (str == "float")
+        return 1;
+    else if (str == "vec2")
+        return 2;
+    else if (str == "vec3")
+        return 3;
+    else if (str == "vec4")
+        return 4;
+    else
+        return -1;
+}
+
 void stage_tab::scan_shaders(void)
 {
     uniform_tree.clear();
@@ -235,16 +248,17 @@ void stage_tab::scan_shaders(void)
             if (done.isEmpty())
                 continue;
 
-            if (done.contains(QRegExp("^uniform\\s+")))
-                uniform_defs.push_back(done.remove(QRegExp("^uniform\\s+")));
-            else if ((split == &vsh_split) && done.contains(QRegExp("^in\\s+")))
-                vbo_defs.push_back(done.remove(QRegExp("^in\\s+")));
-            else if ((split == &fsh_split) && done.contains(QRegExp("^out\\s+")))
-                output_defs.push_back(done.remove(QRegExp("^out\\s+")));
+            if (done.contains(QRegExp("^\\s*(layout\\s+\\(.*\\)\\s|)\\s*uniform\\s+")))
+                uniform_defs.push_back(done.remove(QRegExp("^\\s*(layout\\s+\\(.*\\)\\s|)\\s*uniform\\s+")));
+            else if ((split == &vsh_split) && done.contains(QRegExp("^\\s*(layout\\s+\\(.*\\)\\s|)\\s*in\\s+")))
+                vbo_defs.push_back(done.remove(QRegExp("^\\s*(layout\\s+\\(.*\\)\\s|)\\s*in\\s+")));
+            else if ((split == &fsh_split) && done.contains(QRegExp("^\\s*(layout\\s+\\(.*\\)\\s|)\\s*out\\s+")))
+                output_defs.push_back(done.remove(QRegExp("^\\s*(layout\\s+\\(.*\\)\\s|)\\s*out\\s+")));
         }
     }
 
 
+    QList<vertex_attrib *> old_attribs(vertices->attribs);
     QList<uniform *> *new_uniforms = new QList<uniform *>;
     QList<color_buffer *> *new_outputs = new QList<color_buffer *>;
 
@@ -299,7 +313,11 @@ void stage_tab::scan_shaders(void)
                         else if (type == "mat4")
                             nu = new mat4_uniform;
                         else
-                            throw 42; // FIXME
+                        {
+                            QByteArray ba = type.toUtf8();
+                            fprintf(stderr, "Unknown uniform type %s.\n", ba.constData());
+                            abort(); // FIXME
+                        }
 
                         nu->name = identifier;
                     }
@@ -321,9 +339,63 @@ void stage_tab::scan_shaders(void)
                     }
 
                     if (ncb == NULL)
+                    {
                         ncb = new color_buffer("Stage " + QString::number(stage_number), identifier);
 
+                        if (used_in_display)
+                            ncb->resize(render->width, render->height);
+                    }
+
                     new_outputs->push_back(ncb);
+                }
+                else if (var == &vbo_defs)
+                {
+                    vertex_attrib *nva = NULL;
+
+                    for (vertex_attrib *va: vertices->attribs)
+                    {
+                        if ((va->name == identifier) && (va->epv == get_type_elements_from_string(type)))
+                        {
+                            nva = va;
+                            old_attribs.removeOne(va);
+                            break;
+                        }
+                    }
+
+                    if (nva == NULL)
+                    {
+                        if (type == "float")
+                            nva = new vertex_attrib_float(identifier);
+                        else if (type == "vec2")
+                            nva = new vertex_attrib_vec2(identifier);
+                        else if (type == "vec3")
+                            nva = new vertex_attrib_vec3(identifier);
+                        else if (type == "vec4")
+                            nva = new vertex_attrib_vec4(identifier);
+                        else
+                        {
+                            QByteArray ba = type.toUtf8();
+                            fprintf(stderr, "Unknown VBO type %s.\n", ba.constData());
+                            abort(); // FIXME
+                        }
+
+                        if (vertices->attribs.size())
+                        {
+                            int len = vertices->attribs[0]->len();
+                            for (int i = 0; i < len; i++)
+                            {
+                                switch (nva->epv)
+                                {
+                                    case 1: static_cast<vertex_attrib_float *>(nva)->values.push_back(0.f); break;
+                                    case 2: static_cast<vertex_attrib_vec2  *>(nva)->values.push_back(vec2(0.f, 0.f)); break;
+                                    case 3: static_cast<vertex_attrib_vec3  *>(nva)->values.push_back(vec3(0.f, 0.f, 0.f)); break;
+                                    case 4: static_cast<vertex_attrib_vec4  *>(nva)->values.push_back(vec4(0.f, 0.f, 0.f, 0.f)); break;
+                                }
+                            }
+                        }
+
+                        vertices->attribs.push_back(nva);
+                    }
                 }
             }
         }
@@ -356,6 +428,15 @@ void stage_tab::scan_shaders(void)
     outputs = new_outputs;
 
 
+    for (vertex_attrib *va: old_attribs)
+    {
+        vertices->attribs.removeOne(va);
+        delete va;
+    }
+
+    vertices->update_buffer();
+
+
     for (uniform *u: *uniforms)
     {
         QTreeWidgetItem *qtwi = new QTreeWidgetItem(&uniform_tree, QStringList({ u->name, u->valstr }));
@@ -378,6 +459,7 @@ void stage_tab::scan_shaders(void)
     for (int v = 0; v < vertex_count; v++)
     {
         QTreeWidgetItem *qtwi = new QTreeWidgetItem(&vertex_tree, QStringList(QString::number(v)));
+        qtwi->setData(0, Qt::UserRole, v);
         vertex_tree.addTopLevelItem(qtwi);
 
         for (vertex_attrib *va: vertices->attribs)
@@ -410,6 +492,7 @@ void stage_tab::scan_shaders(void)
             }
 
             QTreeWidgetItem *sqtwi = new QTreeWidgetItem(qtwi, QStringList({ va->name, valstr }));
+            sqtwi->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void *>(va)));
             qtwi->addChild(sqtwi);
         }
     }
@@ -419,14 +502,21 @@ void stage_tab::scan_shaders(void)
 
 void stage_tab::apply_shaders(void)
 {
+    ready_to_roll = false;
+
     if (!rpd.update_shaders(this))
+    {
+        ready_to_roll = true;
         return;
+    }
 
     scan_shaders();
 
     rpd.update_uniforms(this);
     rpd.update_vertex_buffers(this);
     rpd.update_fbo(this);
+
+    ready_to_roll = true;
 }
 
 void stage_tab::enable_gsh(int enable)
@@ -549,4 +639,148 @@ void stage_tab::bind_builtin(void)
 void stage_tab::different_vertex_rendering_method(int idx)
 {
     vertex_rendering_method = vtx_type.itemData(idx).value<int>();
+}
+
+
+void stage_tab::set_displayed(bool isit)
+{
+    if (used_in_display == isit)
+        return;
+
+    used_in_display = isit;
+
+    for (color_buffer *cb: *outputs)
+        cb->resize(isit ? render->width : -1, isit ? render->height : -1);
+}
+
+
+void stage_tab::set_vertex_attribute(void)
+{
+    QTreeWidgetItem *sqtwi = vertex_tree.sel_item, *qtwi = sqtwi->parent();
+
+    if (qtwi == NULL)
+        return;
+
+    int v_idx = qtwi->data(0, Qt::UserRole).value<int>();
+    vertex_attrib *va = static_cast<vertex_attrib *>(sqtwi->data(0, Qt::UserRole).value<void *>());
+
+    bool ok = false;
+
+    if (va->epv == 1)
+    {
+        float val = QInputDialog::getDouble(this, "Change vertex attribute value", "New floating point value to be assigned to this vertex attribute:", static_cast<vertex_attrib_float *>(va)->values[v_idx], -HUGE_VAL, HUGE_VAL, 10, &ok);
+
+        if (ok)
+        {
+            static_cast<vertex_attrib_float *>(va)->values[v_idx] = val;
+            sqtwi->setText(1, QString::number(val));
+        }
+    }
+    else if (va->epv == 2)
+    {
+        vec2 val = vector_dialog::get_vec2(this, "Change vertex attribute value", "New vector to be assigned to this vertex attribute:", static_cast<vertex_attrib_vec2 *>(va)->values[v_idx], &ok);
+
+        if (ok)
+        {
+            static_cast<vertex_attrib_vec2 *>(va)->values[v_idx] = val;
+            sqtwi->setText(1, QString("(%1, %2)").arg(val.x).arg(val.y));
+        }
+    }
+    else if (va->epv == 3)
+    {
+        vec3 val = vector_dialog::get_vec3(this, "Change vertex attribute value", "New vector to be assigned to this vertex attribute:", static_cast<vertex_attrib_vec3 *>(va)->values[v_idx], &ok);
+
+        if (ok)
+        {
+            static_cast<vertex_attrib_vec3 *>(va)->values[v_idx] = val;
+            sqtwi->setText(1, QString("(%1, %2, %3)").arg(val.x).arg(val.y).arg(val.z));
+        }
+    }
+    else if (va->epv == 4)
+    {
+        vec4 val = vector_dialog::get_vec4(this, "Change vertex attribute value", "New vector to be assigned to this vertex attribute:", static_cast<vertex_attrib_vec4 *>(va)->values[v_idx], &ok);
+
+        if (ok)
+        {
+            static_cast<vertex_attrib_vec4 *>(va)->values[v_idx] = val;
+            sqtwi->setText(1, QString("(%1, %2, %3, %4)").arg(val.x).arg(val.y).arg(val.z).arg(val.w));
+        }
+    }
+
+    if (ok)
+    {
+        vertices->update_buffer();
+        rpd.update_vertex_buffers(this);
+    }
+}
+
+
+void stage_tab::add_vertex(void)
+{
+    QTreeWidgetItem *qtwi = vertex_tree.sel_item;
+
+    if (qtwi != NULL)
+        if (qtwi->parent() != NULL)
+            qtwi = qtwi->parent();
+
+    int v_idx;
+
+    if (qtwi == NULL)
+        v_idx = vertex_tree.topLevelItemCount();
+    else
+        v_idx = qtwi->data(0, Qt::UserRole).value<int>();
+
+
+    for (vertex_attrib *va: vertices->attribs)
+    {
+        switch (va->epv)
+        {
+            case 1: static_cast<vertex_attrib_float *>(va)->values.insert(v_idx, 0.f); break;
+            case 2: static_cast<vertex_attrib_vec2  *>(va)->values.insert(v_idx, vec2(0.f, 0.f)); break;
+            case 3: static_cast<vertex_attrib_vec3  *>(va)->values.insert(v_idx, vec3(0.f, 0.f, 0.f)); break;
+            case 4: static_cast<vertex_attrib_vec4  *>(va)->values.insert(v_idx, vec4(0.f, 0.f, 0.f, 0.f)); break;
+        }
+    }
+
+    vertices->update_buffer();
+    rpd.update_vertex_buffers(this);
+
+    // FIXME: Isn't this a bit over the top? Rescanning everything?
+    // Fix 1: Inline it
+    // Fix 2: Split scan_shaders() into multiple functions and use one of those here
+    scan_shaders();
+}
+
+void stage_tab::remove_vertex(void)
+{
+    QTreeWidgetItem *sqtwi = vertex_tree.sel_item, *qtwi = sqtwi->parent();
+
+    if (qtwi == NULL)
+        qtwi = sqtwi;
+
+    int v_idx = qtwi->data(0, Qt::UserRole).value<int>();
+
+
+    for (vertex_attrib *va: vertices->attribs)
+    {
+        switch (va->epv)
+        {
+            case 1: static_cast<vertex_attrib_float *>(va)->values.remove(v_idx); break;
+            case 2: static_cast<vertex_attrib_vec2  *>(va)->values.remove(v_idx); break;
+            case 3: static_cast<vertex_attrib_vec3  *>(va)->values.remove(v_idx); break;
+            case 4: static_cast<vertex_attrib_vec4  *>(va)->values.remove(v_idx); break;
+        }
+    }
+
+    vertices->update_buffer();
+    rpd.update_vertex_buffers(this);
+
+    delete qtwi;
+
+    for (int i = v_idx; i < vertex_tree.topLevelItemCount(); i++)
+    {
+        qtwi = vertex_tree.topLevelItem(i);
+        qtwi->setText(0, QString::number(i));
+        qtwi->setData(0, Qt::UserRole, i);
+    }
 }

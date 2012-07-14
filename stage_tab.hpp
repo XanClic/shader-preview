@@ -25,6 +25,10 @@ class stage_tab: public QWidget
         void assign_uniform(void);
         void bind_builtin(void);
         void different_vertex_rendering_method(int idx);
+        void set_displayed(bool isit);
+        void set_vertex_attribute(void);
+        void add_vertex(void);
+        void remove_vertex(void);
 
     private:
         /// Scans the shaders contained in the edit widgets for variables
@@ -47,7 +51,7 @@ class stage_tab: public QWidget
         render_stage rpd; // renderer private data
         renderer *render;
 
-        bool ready_to_roll;
+        bool ready_to_roll, used_in_display;
 
         friend class main_window;
         friend class render_stage;

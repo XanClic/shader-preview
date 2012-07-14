@@ -13,7 +13,8 @@ static int stage_numbers = 1;
 main_window::main_window(void):
     QWidget(NULL),
     render(this),
-    add_stage_btn("Add stage")
+    add_stage_btn("Add stage"),
+    scale_display_fbo("Render displayed FBO in appropriate resolution")
 {
     setWindowTitle("Shader Preview");
 
@@ -25,7 +26,13 @@ main_window::main_window(void):
     connect(&add_stage_btn, SIGNAL(clicked()), this, SLOT(add_stage()));
 
 
+    scale_display_fbo.setCheckState(Qt::Checked);
+
+    connect(&scale_display_fbo, SIGNAL(stateChanged(int)), &render, SLOT(fbo_display_setting_changed(int)));
+
+
     render_layout.addWidget(&render);
+    render_layout.addWidget(&scale_display_fbo);
     render_page.setLayout(&render_layout);
 
 
@@ -43,6 +50,8 @@ main_window::main_window(void):
 
 
     render.tex_bound = (*st1->outputs)[0]->mt;
+
+    render.fbo_display_setting_changed(Qt::Checked);
 }
 
 main_window::~main_window(void)

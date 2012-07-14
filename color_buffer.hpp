@@ -12,6 +12,8 @@ class color_buffer
         color_buffer(const QString &stage_name, const QString &n);
         ~color_buffer(void);
 
+        void resize(int w, int h);
+
         QString name;
         unsigned id;
 
