@@ -265,7 +265,7 @@ void renderer::paintGL(void)
         for (int i = 0; i < st->rpd.fbo_cb_bindings; i++)
             bufs[i] = GL_COLOR_ATTACHMENT0 + i;
         glDrawBuffers(st->rpd.fbo_cb_bindings, bufs);
-        delete bufs;
+        delete[] bufs;
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

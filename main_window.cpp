@@ -19,11 +19,14 @@ main_window::main_window(void):
     setWindowTitle("Shader Preview");
 
 
+    tabs.setTabsClosable(true);
+
     tabs.addTab(&render_page, "Result");
 
     tabs.setCornerWidget(&add_stage_btn);
 
     connect(&add_stage_btn, SIGNAL(clicked()), this, SLOT(add_stage()));
+    connect(&tabs, SIGNAL(tabCloseRequested(int)), this, SLOT(remove_stage(int)));
 
 
     scale_display_fbo.setCheckState(Qt::Checked);
@@ -67,4 +70,26 @@ void main_window::add_stage(void)
     stage_tabs.push_back(nst);
 
     tabs.addTab(nst, "Stage " + QString::number(stage_numbers++));
+}
+
+void main_window::remove_stage(int index)
+{
+    if (!index)
+        return;
+
+    stage_tab *st = stage_tabs[index - 1];
+
+    for (color_buffer *cb: *st->outputs)
+    {
+        if (cb->mt == render.tex_bound)
+        {
+            QMessageBox::critical(this, "Stage bound", "One output texture of this stage is currently being displayed.\n\nThus it cannot be removed.");
+            return;
+        }
+    }
+
+    stage_tabs.removeAt(index - 1);
+    delete st;
+
+    tabs.removeTab(index);
 }
