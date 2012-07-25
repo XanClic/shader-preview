@@ -783,4 +783,7 @@ void stage_tab::remove_vertex(void)
         qtwi->setText(0, QString::number(i));
         qtwi->setData(0, Qt::UserRole, i);
     }
+
+
+    vertex_tree.unselect();
 }

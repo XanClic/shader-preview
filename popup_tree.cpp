@@ -17,7 +17,7 @@ popup_tree::popup_tree(QWidget *parent):
 
 popup_tree::~popup_tree(void)
 {
-    delete sel_item;
+    delete item_popup_menu;
     delete bg_popup_menu;
 }
 
@@ -40,4 +40,10 @@ void popup_tree::contextMenuEvent(QContextMenuEvent *evt)
 
     if (popup != NULL)
         popup->popup(evt->globalPos());
+}
+
+void popup_tree::unselect(void)
+{
+    sel_item = NULL;
+    setCurrentItem(NULL);
 }
