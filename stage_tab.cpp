@@ -111,8 +111,16 @@ stage_tab::stage_tab(int sn, renderer *rdr, QWidget *parent):
 
     if (ogl_maj >= 3)
     {
-        vsh_edit.setPlainText("#version 130\n\nin vec4 vertex;\n\nuniform mat4 projection, modelview;\n\nvoid main(void)\n{\n    gl_Position = projection * modelview * vertex;\n}");
-        fsh_edit.setPlainText("#version 130\n\nout vec4 color;\n\nvoid main(void)\n{\n    color = vec4(1.0, 0.25, 0.0, 1.0);\n}");
+        if ((ogl_maj >= 4) || (ogl_min >= 2))
+        {
+            vsh_edit.setPlainText("#version 150 core\n\nin vec4 vertex;\n\nuniform mat4 projection, modelview;\n\nvoid main(void)\n{\n    gl_Position = projection * modelview * vertex;\n}");
+            fsh_edit.setPlainText("#version 150 core\n\nout vec4 color;\n\nvoid main(void)\n{\n    color = vec4(1.0, 0.25, 0.0, 1.0);\n}");
+        }
+        else
+        {
+            vsh_edit.setPlainText("#version 130\n\nin vec4 vertex;\n\nuniform mat4 projection, modelview;\n\nvoid main(void)\n{\n    gl_Position = projection * modelview * vertex;\n}");
+            fsh_edit.setPlainText("#version 130\n\nout vec4 color;\n\nvoid main(void)\n{\n    color = vec4(1.0, 0.25, 0.0, 1.0);\n}");
+        }
     }
     else
     {
@@ -129,6 +137,22 @@ stage_tab::stage_tab(int sn, renderer *rdr, QWidget *parent):
     va->values.push_back(vec4(-1.f, -1.f, 0.f, 1.f));
     va->values.push_back(vec4( 1.f, -1.f, 0.f, 1.f));
     va->values.push_back(vec4( 1.f,  1.f, 0.f, 1.f));
+
+    for (int i = 1; i < vertices->attribs.length(); i++)
+    {
+        vertex_attrib *nva = vertices->attribs[i];
+
+        for (int j = 0; j < 4; j++)
+        {
+            switch (nva->epv)
+            {
+                case 1: static_cast<vertex_attrib_float *>(nva)->values.push_back(0.f); break;
+                case 2: static_cast<vertex_attrib_vec2  *>(nva)->values.push_back(vec2(0.f, 0.f)); break;
+                case 3: static_cast<vertex_attrib_vec3  *>(nva)->values.push_back(vec3(0.f, 0.f, 0.f)); break;
+                case 4: static_cast<vertex_attrib_vec4  *>(nva)->values.push_back(vec4(0.f, 0.f, 0.f, 0.f)); break;
+            }
+        }
+    }
 
     (*uniforms)[0]->track = render->projection;
     (*uniforms)[1]->track = render->modelview;
@@ -379,7 +403,7 @@ void stage_tab::scan_shaders(void)
                             abort(); // FIXME
                         }
 
-                        if (vertices->attribs.size())
+                        if (vertices->attribs.length())
                         {
                             int len = vertices->attribs[0]->len();
                             for (int i = 0; i < len; i++)
