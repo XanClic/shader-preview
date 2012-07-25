@@ -20,6 +20,7 @@ class main_window: public QWidget
 
     public slots:
         void add_stage(void);
+        void remove_stage(int index);
 
     private:
         QVBoxLayout main_layout, render_layout;
