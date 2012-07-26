@@ -26,7 +26,7 @@ class vertex_attrib
     class vertex_attrib_##type: public vertex_attrib \
     { \
         public: \
-            vertex_attrib_##type(const QString &name): vertex_attrib(name) { epv = e_p_v; } \
+            vertex_attrib_##type(const QString &vaname): vertex_attrib(vaname) { epv = e_p_v; } \
             virtual ~vertex_attrib_##type(void) final override {} \
             virtual const void *ptr(void) final override { return values.constData(); } \
             virtual size_t len(void) final override { return values.size(); } \

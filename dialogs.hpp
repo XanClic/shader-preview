@@ -7,6 +7,7 @@
 #include "trackable.hpp"
 #include "types.hpp"
 #include "uniform.hpp"
+#include "vertex_info.hpp"
 
 
 class vector_dialog: public QDialog
@@ -227,6 +228,82 @@ class trackable_dialog: public QDialog
         QPushButton *accept_button, *reject_button;
         QHBoxLayout *button_layout;
         QVBoxLayout *top_layout;
+};
+
+
+struct wavefront_assignment
+{
+    vertex_attrib *va;
+    bool fixed;
+};
+
+struct wavefront_fixed_assignment_float: public wavefront_assignment
+{
+    float val;
+};
+
+struct wavefront_fixed_assignment_vec2: public wavefront_assignment
+{
+    vec2 val;
+};
+
+struct wavefront_fixed_assignment_vec3: public wavefront_assignment
+{
+    vec3 val;
+};
+
+struct wavefront_fixed_assignment_vec4: public wavefront_assignment
+{
+    vec4 val;
+};
+
+struct wavefront_var_assignment: public wavefront_assignment
+{
+    enum list
+    {
+        wf_vertices = 0,
+        wf_texcoords = 1,
+        wf_normals = 2
+    } val;
+};
+
+
+class wavefront_load_dialog: public QDialog
+{
+    Q_OBJECT
+
+    public:
+        wavefront_load_dialog(QWidget *parent, const QString &title, const QString &text, const QList<vertex_attrib *> &vas);
+        ~wavefront_load_dialog(void);
+
+        static QList<wavefront_assignment *> *get_assignment(QWidget *parent, const QString &title, const QString &text, const QList<vertex_attrib *> &vas, bool *ok = NULL)
+        {
+            wavefront_load_dialog dial(parent, title, text, vas);
+
+            if (ok != NULL)
+                *ok = dial.exec();
+            else
+                dial.exec();
+
+            return dial.assignments;
+        }
+
+
+    public slots:
+        void va_changed(int ni);
+        void asgn_changed(int ni);
+        void val_changed(double d);
+
+
+    private:
+        bool ignore_asgn;
+        QLabel *text_label;
+        QComboBox *va_box, *asgn_box;
+        QDoubleSpinBox *spin_boxes;
+        QPushButton *accept_button, *reject_button;
+        QHBoxLayout *button_layout, *coord_layout;
+        QVBoxLayout *top_layout;
+        QList<wavefront_assignment *> *assignments; // not destroyed in the destructor
 };
 
 #endif

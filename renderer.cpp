@@ -70,13 +70,13 @@ static unsigned compile_shader(GLenum type, const QString &str)
 }
 
 
-renderer::renderer(main_window *parent):
-    QGLWidget(parent),
+renderer::renderer(main_window *rparent):
+    QGLWidget(rparent),
     rotate_object(false),
     tex_bound(NULL),
     scale_display_fbo(false)
 {
-    main_wnd = parent;
+    main_wnd = rparent;
 
     refresh_timer.setInterval(1000 / 60);
     connect(&refresh_timer, SIGNAL(timeout()), this, SLOT(updateGL()));

@@ -1,7 +1,9 @@
 #define GL_GLEXT_PROTOTYPES
 
+#include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include <QtGui>
 
@@ -15,8 +17,8 @@
 #include "vertex_info.hpp"
 
 
-stage_tab::stage_tab(int sn, renderer *rdr, QWidget *parent):
-    QWidget(parent),
+stage_tab::stage_tab(int sn, renderer *rdr, QWidget *rparent):
+    QWidget(rparent),
     vsh_edit(this), gsh_edit(this), fsh_edit(this),
     sh_apply("Appl&y shaders", this),
     uniform_tree(this), vertex_tree(this), buffer_tree(this),
@@ -54,9 +56,13 @@ stage_tab::stage_tab(int sn, renderer *rdr, QWidget *parent):
     vertex_tree.item_popup_menu->addSeparator();
     connect(vertex_tree.item_popup_menu->addAction("&Insert vertex"), SIGNAL(triggered()), this, SLOT(add_vertex()));
     connect(vertex_tree.item_popup_menu->addAction("&Remove vertex"), SIGNAL(triggered()), this, SLOT(remove_vertex()));
+    vertex_tree.item_popup_menu->addSeparator();
+    connect(vertex_tree.item_popup_menu->addAction("Load &wavefront obj"), SIGNAL(triggered()), this, SLOT(load_wavefront()));
 
     vertex_tree.bg_popup_menu = new QMenu;
     connect(vertex_tree.bg_popup_menu->addAction("&Insert vertex"), SIGNAL(triggered()), this, SLOT(add_vertex()));
+    vertex_tree.bg_popup_menu->addSeparator();;
+    connect(vertex_tree.bg_popup_menu->addAction("Load &wavefront obj"), SIGNAL(triggered()), this, SLOT(load_wavefront()));
 
 
     buffer_tree.setColumnCount(1);
@@ -810,4 +816,236 @@ void stage_tab::remove_vertex(void)
 
 
     vertex_tree.unselect();
+}
+
+
+static void wavefront_parse_face_vertex(const QString &str, int *v)
+{
+    memset(v, 0, sizeof(v[0]) * 3);
+
+    QString mstr(str);
+    QTextStream stream(&mstr);
+    char c;
+
+    for (int i = 0; !stream.atEnd() && (i < 3); i++)
+    {
+        stream >> v[i];
+        stream >> c;
+        assert(!c || (c == '/'));
+    }
+}
+
+
+static void wavefront_transfer_vertices(const QLinkedList<vec4> &input, vertex_attrib *output)
+{
+    switch (output->epv)
+    {
+        case 1:
+        {
+            vertex_attrib_float *va1 = static_cast<vertex_attrib_float *>(output);
+            va1->values.clear();
+            for (vec4 v: input)
+                va1->values.push_back(v.x);
+            break;
+        }
+        case 2:
+        {
+            vertex_attrib_vec2 *va2 = static_cast<vertex_attrib_vec2 *>(output);
+            va2->values.clear();
+            for (vec4 v: input)
+                va2->values.push_back(vec2(v.x, v.y));
+            break;
+        }
+        case 3:
+        {
+            vertex_attrib_vec3 *va3 = static_cast<vertex_attrib_vec3 *>(output);
+            va3->values.clear();
+            for (vec4 v: input)
+                va3->values.push_back(vec3(v.x, v.y, v.z));
+            break;
+        }
+        case 4:
+        {
+            vertex_attrib_vec4 *va4 = static_cast<vertex_attrib_vec4 *>(output);
+            va4->values.clear();
+            for (vec4 v: input)
+                va4->values.push_back(vec4(v.x, v.y, v.z, v.w));
+            break;
+        }
+    }
+}
+
+void stage_tab::load_wavefront(void)
+{
+    if (!vertices->attribs.size())
+    {
+        QMessageBox::critical(this, "No destination", "Loading a file containing vertex data would be useless without any vertex attribute.");
+        return;
+    }
+
+
+    QString fn = QFileDialog::getOpenFileName(this, "Load wavefront obj", QString(), "Wavefront files (*.obj);;All files (*.*)");
+
+    if (fn.isEmpty())
+        return;
+
+    QFile fp(fn);
+    if (!fp.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        QMessageBox::critical(this, "Error loading file", "Could not open the given file: " + fp.errorString());
+        return;
+    }
+
+    QList<vec4> a_vertices, a_normals, a_tex_coords;
+    QLinkedList<vec4> o_vertices, o_normals, o_tex_coords;
+
+    for (;;)
+    {
+        QByteArray line_arr = fp.readLine();
+
+        if (line_arr.isEmpty() || (fp.error() != QFile::NoError))
+            break;
+
+        QString line_str = QString::fromUtf8(line_arr).simplified();
+        QTextStream line(&line_str);
+
+        QString cmd;
+        line >> cmd;
+
+        if (cmd == "v")
+        {
+            vec4 v(0.f, 0.f, 0.f, 1.f);
+            for (int i = 0; !line.atEnd() && (i < 4); i++)
+                line >> v[i];
+            a_vertices.push_back(v);
+        }
+        else if (cmd == "vt")
+        {
+            vec4 v(0.f, 0.f, 0.f, 0.f);
+            for (int i = 0; !line.atEnd() && (i < 4); i++)
+                line >> v[i];
+            a_tex_coords.push_back(v);
+        }
+        else if (cmd == "vn")
+        {
+            vec4 v(0.f, 0.f, 0.f, 0.f);
+            for (int i = 0; !line.atEnd() && (i < 4); i++)
+                line >> v[i];
+            a_normals.push_back(v);
+        }
+        else if (cmd == "f")
+        {
+            // FIXME: Concave polygons (i.e., implement better algorithm than triangle fans)
+
+            int pvtx[3], lvtx[3], cvtx[3];
+
+            QString vtxd;
+
+            line >> vtxd;
+            wavefront_parse_face_vertex(vtxd, pvtx);
+
+            line >> vtxd;
+            wavefront_parse_face_vertex(vtxd, cvtx);
+
+            while (!line.atEnd())
+            {
+                memcpy(lvtx, cvtx, sizeof(cvtx));
+
+                line >> vtxd;
+                wavefront_parse_face_vertex(vtxd, cvtx);
+
+                o_vertices.push_back(cvtx[0] ? a_vertices[pvtx[0] - 1] : vec4(0.f, 0.f, 0.f, 1.f));
+                o_vertices.push_back(cvtx[0] ? a_vertices[lvtx[0] - 1] : vec4(0.f, 0.f, 0.f, 1.f));
+                o_vertices.push_back(cvtx[0] ? a_vertices[cvtx[0] - 1] : vec4(0.f, 0.f, 0.f, 1.f));
+
+                o_tex_coords.push_back(cvtx[1] ? a_tex_coords[pvtx[1] - 1] : vec4(0.f, 0.f, 0.f, 0.f));
+                o_tex_coords.push_back(cvtx[1] ? a_tex_coords[lvtx[1] - 1] : vec4(0.f, 0.f, 0.f, 0.f));
+                o_tex_coords.push_back(cvtx[1] ? a_tex_coords[cvtx[1] - 1] : vec4(0.f, 0.f, 0.f, 0.f));
+
+                o_normals.push_back(cvtx[2] ? a_normals[pvtx[2] - 1] : vec4(0.f, 0.f, 0.f, 0.f));
+                o_normals.push_back(cvtx[2] ? a_normals[lvtx[2] - 1] : vec4(0.f, 0.f, 0.f, 0.f));
+                o_normals.push_back(cvtx[2] ? a_normals[cvtx[2] - 1] : vec4(0.f, 0.f, 0.f, 0.f));
+            }
+        }
+    }
+
+    if (fp.error() != QFile::NoError)
+    {
+        QMessageBox::critical(this, "Error loading file", "An error occured while loading the file: " + fp.errorString());
+        return;
+    }
+
+
+    bool ok = false;
+    QList<wavefront_assignment *> *asgns = wavefront_load_dialog::get_assignment(this, "Assign loaded values", "Assign values to the available vertex objects:", vertices->attribs, &ok);
+
+    if (!ok)
+    {
+        for (wavefront_assignment *wa: *asgns)
+            delete wa;
+        delete asgns;
+
+        return;
+    }
+
+    for (wavefront_assignment *wa: *asgns)
+    {
+        vertex_attrib *va = wa->va;
+
+        if (wa->fixed)
+        {
+            switch (va->epv)
+            {
+                case 1:
+                {
+                    vertex_attrib_float *va1 = static_cast<vertex_attrib_float *>(va);
+                    va1->values.clear();
+                    va1->values.insert(0, o_vertices.size(), static_cast<wavefront_fixed_assignment_float *>(wa)->val);
+                    break;
+                }
+                case 2:
+                {
+                    vertex_attrib_vec2 *va2 = static_cast<vertex_attrib_vec2 *>(va);
+                    va2->values.clear();
+                    va2->values.insert(0, o_vertices.size(), static_cast<wavefront_fixed_assignment_vec2 *>(wa)->val);
+                    break;
+                }
+                case 3:
+                {
+                    vertex_attrib_vec3 *va3 = static_cast<vertex_attrib_vec3 *>(va);
+                    va3->values.clear();
+                    va3->values.insert(0, o_vertices.size(), static_cast<wavefront_fixed_assignment_vec3 *>(wa)->val);
+                    break;
+                }
+                case 4:
+                {
+                    vertex_attrib_vec4 *va4 = static_cast<vertex_attrib_vec4 *>(va);
+                    va4->values.clear();
+                    va4->values.insert(0, o_vertices.size(), static_cast<wavefront_fixed_assignment_vec4 *>(wa)->val);
+                    break;
+                }
+            }
+        }
+        else
+        {
+            switch (static_cast<wavefront_var_assignment *>(wa)->val)
+            {
+                case wavefront_var_assignment::wf_vertices : wavefront_transfer_vertices(o_vertices  , va); break;
+                case wavefront_var_assignment::wf_texcoords: wavefront_transfer_vertices(o_tex_coords, va); break;
+                case wavefront_var_assignment::wf_normals  : wavefront_transfer_vertices(o_normals   , va); break;
+            }
+        }
+
+        delete wa;
+    }
+
+    delete asgns;
+
+
+    vertices->update_buffer();
+    rpd.update_vertex_buffers(this);
+
+    scan_shaders();
+
+    vtx_type.setCurrentIndex(4);
 }
