@@ -5,8 +5,8 @@
 #include <popup_tree.hpp>
 
 
-popup_tree::popup_tree(QWidget *parent):
-    QTreeWidget(parent),
+popup_tree::popup_tree(QWidget *rparent):
+    QTreeWidget(rparent),
     sel_item(NULL),
     item_popup_menu(NULL),
     bg_popup_menu(NULL)

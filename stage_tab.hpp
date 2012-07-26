@@ -29,6 +29,7 @@ class stage_tab: public QWidget
         void set_vertex_attribute(void);
         void add_vertex(void);
         void remove_vertex(void);
+        void load_wavefront(void);
 
     private:
         /// Scans the shaders contained in the edit widgets for variables

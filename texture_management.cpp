@@ -164,12 +164,13 @@ static GLuint load_bmp_texture(const char *path)
         {
             for (int x = 0; x < w; x++)
             {
-                int o = (y * w + x) * 4;
+                // FIXME: I don't know what, but it certainly needs to be fixed
+                int op = (y * w + x) * 4;
 
-                buf[o++] = content[i++];
-                buf[o++] = content[i++];
-                buf[o++] = content[i++];
-                buf[o++] = (bpp == 32) ? content[i++] : 0;
+                buf[op++] = content[i++];
+                buf[op++] = content[i++];
+                buf[op++] = content[i++];
+                buf[op++] = (bpp == 32) ? content[i++] : 0;
             }
         }
     }

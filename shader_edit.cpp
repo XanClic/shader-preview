@@ -4,8 +4,8 @@
 #include "shader_edit.hpp"
 
 
-shader_edit::shader_edit(QWidget *parent):
-    QPlainTextEdit(parent)
+shader_edit::shader_edit(QWidget *rparent):
+    QPlainTextEdit(rparent)
 {
 }
 
@@ -39,7 +39,7 @@ void shader_edit::load_file(void)
 
     file_name = out;
 
-    QByteArray data = fp.readAll();
+    QByteArray indata = fp.readAll();
 
     if (fp.error() != QFile::NoError)
     {
@@ -47,7 +47,7 @@ void shader_edit::load_file(void)
         return;
     }
 
-    setPlainText(QString::fromUtf8(data.constData()));
+    setPlainText(QString::fromUtf8(indata.constData()));
 }
 
 void shader_edit::save_file(void)
