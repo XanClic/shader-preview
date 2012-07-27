@@ -250,7 +250,8 @@ void stage_tab::scan_shaders(void)
 
     if (ogl_maj < 3)
     {
-        vsh_src += "\nin vec4 gl_Vertex, gl_MultiTexCoord0, gl_Color, gl_Normal;";
+        // TODO: Multitexturing
+        vsh_src += "\nin vec4 gl_Vertex, gl_MultiTexCoord0, gl_Color;\nin vec3 gl_Normal;";
         // TODO: gl_FragData[i]
         fsh_src += "\nout vec4 gl_FragColor;";
     }
