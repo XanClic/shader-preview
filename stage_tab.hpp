@@ -4,6 +4,7 @@
 #include <QtGui>
 
 #include "color_buffer.hpp"
+#include "depth_buffer.hpp"
 #include "popup_tree.hpp"
 #include "renderer.hpp"
 #include "shader_edit.hpp"
@@ -46,6 +47,7 @@ class stage_tab: public QWidget
         QList<uniform *> *uniforms;
         vertex_info *vertices;
         QList<color_buffer *> *outputs;
+        depth_buffer *depth;
 
         int vertex_rendering_method, stage_number;
 

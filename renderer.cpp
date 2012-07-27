@@ -21,7 +21,6 @@
 
 int ogl_maj, ogl_min;
 
-static unsigned common_depth, output_depth;
 static main_window *main_wnd;
 
 volatile bool gl_initialized = false;
@@ -105,8 +104,6 @@ renderer::~renderer(void)
 {
     free(mat_mem);
 
-    glDeleteRenderbuffers(1, &common_depth);
-    glDeleteRenderbuffers(1, &output_depth);
     glDeleteBuffers(1, &tex_draw_buf);
 
 
@@ -135,14 +132,6 @@ void renderer::initializeGL(void)
     glClearColor(0.f, 0.f, 0.f, 0.f);
     glClearDepth(1.f);
 
-
-    glGenRenderbuffers(1, &common_depth);
-    glBindRenderbuffer(GL_RENDERBUFFER, common_depth);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 1024, 1024);
-
-    glGenRenderbuffers(1, &output_depth);
-    glBindRenderbuffer(GL_RENDERBUFFER, output_depth);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
 
     if (ogl_maj >= 3)
     {
@@ -231,12 +220,11 @@ void renderer::resizeGL(int w, int h)
             for (color_buffer *cb: *st->outputs)
                 cb->resize(width, height);
 
+            st->depth->resize(width, height);
+
             break;
         }
     }
-
-    glBindRenderbuffer(GL_RENDERBUFFER, output_depth);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, width, height);
 }
 
 void renderer::paintGL(void)
@@ -412,8 +400,12 @@ void renderer::set_bound_texture(void)
     if (!ok || (mt == tex_bound))
         return;
 
+
+    bool found;
+
     if (scale_display_fbo)
     {
+        found = false;
         for (stage_tab *st: main_wnd->stage_tabs)
         {
             for (color_buffer *cb: *st->outputs)
@@ -422,8 +414,19 @@ void renderer::set_bound_texture(void)
                 {
                     st->set_displayed(false);
                     st->rpd.update_fbo(st);
+                    found = true;
                     break;
                 }
+            }
+
+            if (found)
+                break;
+
+            if (st->depth->mt == tex_bound)
+            {
+                st->set_displayed(false);
+                st->rpd.update_fbo(st);
+                break;
             }
         }
     }
@@ -436,6 +439,7 @@ void renderer::set_bound_texture(void)
 
     if (scale_display_fbo)
     {
+        found = false;
         for (stage_tab *st: main_wnd->stage_tabs)
         {
             for (color_buffer *cb: *st->outputs)
@@ -444,8 +448,19 @@ void renderer::set_bound_texture(void)
                 {
                     st->set_displayed(true);
                     st->rpd.update_fbo(st);
+                    found = true;
                     break;
                 }
+            }
+
+            if (found)
+                break;
+
+            if (st->depth->mt == tex_bound)
+            {
+                st->set_displayed(true);
+                st->rpd.update_fbo(st);
+                break;
             }
         }
     }
@@ -453,6 +468,8 @@ void renderer::set_bound_texture(void)
 
 void renderer::fbo_display_setting_changed(int new_state)
 {
+    bool found = false;
+
     if (new_state == Qt::Checked)
     {
         scale_display_fbo = true;
@@ -465,8 +482,19 @@ void renderer::fbo_display_setting_changed(int new_state)
                 {
                     st->set_displayed(true);
                     st->rpd.update_fbo(st);
+                    found = true;
                     break;
                 }
+            }
+
+            if (found)
+                break;
+
+            if (st->depth->mt == tex_bound)
+            {
+                st->set_displayed(true);
+                st->rpd.update_fbo(st);
+                break;
             }
         }
     }
@@ -482,8 +510,19 @@ void renderer::fbo_display_setting_changed(int new_state)
                 {
                     st->set_displayed(false);
                     st->rpd.update_fbo(st);
+                    found = true;
                     break;
                 }
+            }
+
+            if (found)
+                break;
+
+            if (st->depth->mt == tex_bound)
+            {
+                st->set_displayed(false);
+                st->rpd.update_fbo(st);
+                break;
             }
         }
     }
@@ -584,11 +623,7 @@ void render_stage::update_fbo(stage_tab *st)
 {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
 
-    if (st->used_in_display)
-        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, output_depth);
-    else
-        glFramebufferRenderbuffer(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, common_depth);
-
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, st->depth->id, 0);
 
     int bi = 0;
 

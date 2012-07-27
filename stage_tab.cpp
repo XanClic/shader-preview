@@ -8,6 +8,7 @@
 #include <QtGui>
 
 #include "color_buffer.hpp"
+#include "depth_buffer.hpp"
 #include "dialogs.hpp"
 #include "opengl.hpp"
 #include "popup_tree.hpp"
@@ -109,6 +110,8 @@ stage_tab::stage_tab(int sn, renderer *rdr, QWidget *rparent):
     vertices = new vertex_info;
     outputs = new QList<color_buffer *>;
 
+    depth = new depth_buffer("Stage " + QString::number(stage_number));
+
 
     gsh_edit.setEnabled(false);
     if (ogl_maj < 3)
@@ -188,6 +191,8 @@ stage_tab::~stage_tab(void)
 
     delete uniforms;
 
+
+    delete depth;
 
     for (color_buffer *cb: *outputs)
         delete cb;
@@ -477,11 +482,12 @@ void stage_tab::scan_shaders(void)
 
     for (color_buffer *cb: *outputs)
     {
-
         QTreeWidgetItem *qtwi = new QTreeWidgetItem(&buffer_tree, QStringList(cb->name));
         qtwi->setData(0, Qt::UserRole, QVariant::fromValue(static_cast<void *>(cb)));
         buffer_tree.addTopLevelItem(qtwi);
     }
+
+    buffer_tree.addTopLevelItem(new QTreeWidgetItem(&buffer_tree, QStringList("depth")));
 
     if (vertices->attribs.length() < 1)
         return;
@@ -682,6 +688,8 @@ void stage_tab::set_displayed(bool isit)
 
     for (color_buffer *cb: *outputs)
         cb->resize(isit ? render->width : -1, isit ? render->height : -1);
+
+    depth->resize(isit ? render->width : -1, isit ? render->height : -1);
 }
 
 
