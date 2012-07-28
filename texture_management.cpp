@@ -126,7 +126,7 @@ static GLuint load_bmp_texture(const char *path)
 
 
     unsigned char *content = new unsigned char[lof - ofs];
-    if ((long)fread(content, 1, lof - ofs, fp) < lof - ofs)
+    if ((long)fread(content, 1, lof - ofs, fp) < lof - (long)ofs)
     {
         delete content;
         fclose(fp);

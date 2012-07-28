@@ -1,5 +1,7 @@
 #define GL_GLEXT_PROTOTYPES
 
+#include "opengl.hpp"
+
 #include <cmath>
 #include <cstdlib>
 
@@ -9,7 +11,6 @@
 #include "color_buffer.hpp"
 #include "dialogs.hpp"
 #include "main_window.hpp"
-#include "opengl.hpp"
 #include "renderer.hpp"
 #include "stage_tab.hpp"
 #include "texture_management.hpp"
@@ -113,6 +114,10 @@ renderer::~renderer(void)
 
 void renderer::initializeGL(void)
 {
+#ifdef _WIN32
+    glewInit();
+#endif
+
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &tmus);
 
     glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &vattrs);

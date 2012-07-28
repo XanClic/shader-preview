@@ -123,7 +123,7 @@ mat4 &mat4::operator*=(const mat4 &m)
 
 mat4 &mat4::translate(const vec3 &vec)
 {
-#ifdef X86_ASSEMBLY
+#ifdef X64_ASSEMBLY
     __asm__ __volatile__ (
             "pshufd $0x00,%0,%0;"
             "pshufd $0x00,%1,%1;"
@@ -206,7 +206,7 @@ mat4 &mat4::rotate(float angle, const vec3 &axis)
 
 mat4 &mat4::scale(const vec3 &fac)
 {
-#ifdef X86_ASSEMBLY
+#ifdef X64_ASSEMBLY
     __asm__ __volatile__ (
             "pshufd $0x00,%0,%0;"
             "pshufd $0x00,%1,%1;"

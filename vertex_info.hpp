@@ -22,6 +22,8 @@ class vertex_attrib
         int epv; // elements per vertex
 };
 
+// TODO: Remove #else when gcc 4.7 works on mingw with qt
+#ifndef OLD_CXX11
 #define create_type_class(type, e_p_v) \
     class vertex_attrib_##type: public vertex_attrib \
     { \
@@ -32,6 +34,18 @@ class vertex_attrib
             virtual size_t len(void) final override { return values.size(); } \
             QVector<type> values; \
     }
+#else
+#define create_type_class(type, e_p_v) \
+    class vertex_attrib_##type: public vertex_attrib \
+    { \
+        public: \
+            vertex_attrib_##type(const QString &vaname): vertex_attrib(vaname) { epv = e_p_v; } \
+            virtual ~vertex_attrib_##type(void) {} \
+            virtual const void *ptr(void) { return values.constData(); } \
+            virtual size_t len(void) { return values.size(); } \
+            QVector<type> values; \
+    }
+#endif
 
 create_type_class(float, 1);
 create_type_class(vec2,  2);
