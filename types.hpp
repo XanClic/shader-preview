@@ -129,6 +129,8 @@ class mat4
 
         mat4 &operator*=(const mat4 &m);
 
+        mat4 operator*(const mat4 &m);
+
 
         mat4 &translate(const vec3 &vec);
         mat4 &rotate(float angle, const vec3 &axis);
