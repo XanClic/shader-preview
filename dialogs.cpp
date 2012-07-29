@@ -113,10 +113,40 @@ matrix_dialog::matrix_dialog(QWidget *rparent, const QString &title, const QStri
     reject_button = new QPushButton("&Cancel", this);
 
 
+    if (dim == 4)
+    {
+        identity_button = new QPushButton("&Identity", this);
+        persp_button = new QPushButton("&Perspective", this);
+        ortho_button = new QPushButton("&Orthographic", this);
+        trans_button = new QPushButton("&Translate", this);
+        scale_button = new QPushButton("&Scale", this);
+        rotate_button = new QPushButton("&Rotate", this);
+
+        connect(identity_button, SIGNAL(clicked()), this, SLOT(load_identity()));
+        connect(persp_button, SIGNAL(clicked()), this, SLOT(load_perspective()));
+        connect(ortho_button, SIGNAL(clicked()), this, SLOT(load_orthographic()));
+        connect(trans_button, SIGNAL(clicked()), this, SLOT(translate()));
+        connect(scale_button, SIGNAL(clicked()), this, SLOT(scale()));
+        connect(rotate_button, SIGNAL(clicked()), this, SLOT(rotate()));
+    }
+
+
     coord_layouts = new QHBoxLayout[dim];
     for (int j = 0; j < dim; j++)
         for (int i = 0; i < dim; i++)
             coord_layouts[j].addWidget(&spin_boxes[j + i * 4]);
+
+    if (dim == 4)
+    {
+        projection_layout = new QHBoxLayout;
+        projection_layout->addWidget(identity_button);
+        projection_layout->addWidget(persp_button);
+        projection_layout->addWidget(ortho_button);
+        transform_layout = new QHBoxLayout;
+        transform_layout->addWidget(trans_button);
+        transform_layout->addWidget(scale_button);
+        transform_layout->addWidget(rotate_button);
+    }
 
     button_layout = new QHBoxLayout;
     button_layout->addStretch(1);
@@ -127,6 +157,13 @@ matrix_dialog::matrix_dialog(QWidget *rparent, const QString &title, const QStri
     top_layout->addWidget(text_label);
     for (int i = 0; i < dim; i++)
         top_layout->addLayout(&coord_layouts[i]);
+
+    if (dim == 4)
+    {
+        top_layout->addLayout(projection_layout);
+        top_layout->addLayout(transform_layout);
+    }
+
     top_layout->addStretch(1);
     top_layout->addLayout(button_layout);
 
@@ -143,10 +180,136 @@ matrix_dialog::~matrix_dialog(void)
     delete[] spin_boxes;
     delete accept_button;
     delete reject_button;
+    if (dimension == 4)
+    {
+        delete identity_button;
+        delete persp_button;
+        delete ortho_button;
+        delete trans_button;
+        delete scale_button;
+        delete rotate_button;
+    }
 
     delete[] coord_layouts;
+    if (dimension == 4)
+    {
+        delete projection_layout;
+        delete transform_layout;
+    }
     delete button_layout;
     delete top_layout;
+}
+
+
+void matrix_dialog::set_mat4(const mat4 &d)
+{
+    if (dimension != 4)
+        return;
+
+    for (int i = 0; i < 16; i++)
+        spin_boxes[i].setValue(d.d[i]);
+}
+
+mat4 matrix_dialog::get_mat4(void)
+{
+    if (dimension != 4)
+        return mat4();
+
+    mat4 m;
+    for (int i = 0; i < 16; i++)
+        m.d[i] = spin_boxes[i].value();
+
+    return m;
+}
+
+
+void matrix_dialog::load_identity(void)
+{
+    set_mat4(mat4());
+}
+
+void matrix_dialog::load_perspective(void)
+{
+    bool ok = false;
+
+    vec4 paras = vector_dialog::get_vec4(this, "Perspective projection", "Aspect (width to height), FOV (horizontal, degrees), near plane, far plane:", vec4(1., 60., .1f, 100.f), &ok);
+
+    if (!ok)
+        return;
+
+    mat4 persp;
+
+    float f = 1.f / tanf(paras[1] * (float)M_PI / 360.f);
+    persp.d[ 0] = f * paras[0];
+    persp.d[ 5] = f;
+    persp.d[10] = (      paras[2] + paras[3]) / (paras[2] - paras[3]);
+    persp.d[11] = -1.f;
+    persp.d[14] = (2.f * paras[2] * paras[3]) / (paras[2] - paras[3]);
+    persp.d[15] = 0.f;
+
+    set_mat4(persp * get_mat4());
+}
+
+void matrix_dialog::load_orthographic(void)
+{
+    // FIXME: user-defined z planes
+
+    bool ok = false;
+
+    vec4 paras = vector_dialog::get_vec4(this, "Orthographic projection", "Clipping planes (left, right, bottom, top):", vec4(-1.f, 1.f, -1.f, 1.f), &ok);
+
+    if (!ok)
+        return;
+
+    mat4 ortho;
+
+    ortho.d[ 0] = 2.f / (paras[1] - paras[0]);
+    ortho.d[ 5] = 2.f / (paras[3] - paras[2]);
+    ortho.d[10] = -1.f; // far plane @1, near plane @-1
+    ortho.d[12] = (paras[0] + paras[1]) / (paras[0] - paras[1]);
+    ortho.d[13] = (paras[2] + paras[3]) / (paras[2] - paras[3]);
+    ortho.d[14] = 0.f;
+
+    set_mat4(ortho * get_mat4());
+}
+
+void matrix_dialog::translate(void)
+{
+    bool ok = false;
+
+    vec3 vec = vector_dialog::get_vec3(this, "Translation", "Translate matrix by:", vec3(0.f, 0.f, 0.f), &ok);
+
+    if (!ok)
+        return;
+
+    mat4 m(get_mat4());
+    set_mat4(m.translate(vec));
+}
+
+void matrix_dialog::scale(void)
+{
+    bool ok = false;
+
+    vec3 vec = vector_dialog::get_vec3(this, "Scale", "Scale matrix by:", vec3(1.f, 1.f, 1.f), &ok);
+
+    if (!ok)
+        return;
+
+    mat4 m(get_mat4());
+    set_mat4(m.scale(vec));
+}
+
+void matrix_dialog::rotate(void)
+{
+    bool ok = false;
+
+    vec4 vec = vector_dialog::get_vec4(this, "Rotation", "Rotate [field 1] degrees around vector [fields 2 to 4]:", vec4(0.f, 0.f, 1.f, 0.f), &ok);
+
+    if (!ok)
+        return;
+
+    mat4 m(get_mat4());
+    set_mat4(m.rotate(vec[0] * (float)M_PI / 180.f, vec3(vec[1], vec[2], vec[3])));
 }
 
 

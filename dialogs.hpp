@@ -132,27 +132,35 @@ class matrix_dialog: public QDialog
         {
             matrix_dialog dial(parent, title, text, 4);
 
-            for (int i = 0; i < 16; i++)
-                dial.spin_boxes[i].setValue(init.d[i]);
+            dial.set_mat4(init);
 
             if (ok != NULL)
                 *ok = dial.exec();
             else
                 dial.exec();
 
-            mat4 ret;
-            for (int i = 0; i < 16; i++)
-                ret.d[i] = dial.spin_boxes[i].value();
-
-            return ret;
+            return dial.get_mat4();
         }
 
 
+    public slots:
+        void load_identity(void);
+        void load_perspective(void);
+        void load_orthographic(void);
+        void translate(void);
+        void scale(void);
+        void rotate(void);
+
+
     private:
+        void set_mat4(const mat4 &d);
+        mat4 get_mat4(void);
+
         QLabel *text_label;
         QDoubleSpinBox *spin_boxes;
         QPushButton *accept_button, *reject_button;
-        QHBoxLayout *coord_layouts, *button_layout;
+        QPushButton *identity_button, *persp_button, *ortho_button, *trans_button, *scale_button, *rotate_button;
+        QHBoxLayout *coord_layouts, *button_layout, *projection_layout, *transform_layout;
         QVBoxLayout *top_layout;
 
         int dimension;

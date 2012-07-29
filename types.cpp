@@ -121,6 +121,14 @@ mat4 &mat4::operator*=(const mat4 &m)
 }
 
 
+mat4 mat4::operator*(const mat4 &om)
+{
+    mat4 m(*this);
+    m *= om;
+    return m;
+}
+
+
 mat4 &mat4::translate(const vec3 &vec)
 {
 #ifdef X64_ASSEMBLY
