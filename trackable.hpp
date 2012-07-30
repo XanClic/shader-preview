@@ -19,6 +19,8 @@ class trackable
 };
 
 
+trackable *add_trackable(float *v, const QString &name);
+trackable *add_trackable(int *v, const QString &name);
 trackable *add_trackable(mat3 *v, const QString &name);
 trackable *add_trackable(mat4 *v, const QString &name);
 void remove_trackable(trackable *t);

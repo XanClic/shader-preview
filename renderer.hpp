@@ -3,6 +3,7 @@
 
 #include <QGLWidget>
 #include <QMenu>
+#include <QTime>
 #include <QTimer>
 #include <QWidget>
 
@@ -47,6 +48,11 @@ class renderer: public QGLWidget
 
         mat4 *modelview, *projection, *it_modelview;
         mat3 *normal_mat;
+
+        int frame_counter;
+        float elapsed_time;
+
+        QTime meas_time;
 
         vec4 tex_draw_data[4];
         unsigned tex_draw_buf, tex_draw_prg, tex_draw_tex_uniform, tex_draw_vtx_attrib;
