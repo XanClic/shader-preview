@@ -73,10 +73,13 @@ static unsigned compile_shader(GLenum type, const QString &str)
 renderer::renderer(main_window *rparent):
     QGLWidget(rparent),
     rotate_object(false),
+    frame_counter(0), elapsed_time(0.f),
     tex_bound(NULL),
     scale_display_fbo(false)
 {
     main_wnd = rparent;
+
+    meas_time.start();
 
     refresh_timer.setInterval(1000 / 60);
     connect(&refresh_timer, SIGNAL(timeout()), this, SLOT(updateGL()));
@@ -96,6 +99,9 @@ renderer::renderer(main_window *rparent):
     add_trackable(projection, "Projection matrix");
     add_trackable(it_modelview, "Inversed modelview matrix");
     add_trackable(normal_mat, "Normal matrix");
+
+    add_trackable(&frame_counter, "Frame counter");
+    add_trackable(&elapsed_time, "Time elapsed in seconds");
 
 
     connect(popup_menu.addAction("Set displayed te&xture"), SIGNAL(triggered()), this, SLOT(set_bound_texture()));
@@ -234,6 +240,9 @@ void renderer::resizeGL(int w, int h)
 
 void renderer::paintGL(void)
 {
+    elapsed_time = meas_time.elapsed() / 1000.f;
+
+
     if (!scale_display_fbo)
         glViewport(0, 0, 1024, 1024);
 
@@ -352,6 +361,9 @@ void renderer::paintGL(void)
     glUniform1i(tex_draw_tex_uniform, 0);
 
     glDrawArrays(GL_QUADS, 0, 4);
+
+
+    frame_counter++;
 }
 
 void renderer::mousePressEvent(QMouseEvent *evt)
