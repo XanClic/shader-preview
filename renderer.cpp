@@ -55,9 +55,9 @@ static unsigned compile_shader(GLenum type, const QString &str)
 
         if (type == GL_VERTEX_SHADER)
             QMessageBox::critical(main_wnd, "Error compiling vertex shader", msg);
-        if (type == GL_GEOMETRY_SHADER)
+        else if (type == GL_GEOMETRY_SHADER)
             QMessageBox::critical(main_wnd, "Error compiling geometry shader", msg);
-        if (type == GL_FRAGMENT_SHADER)
+        else if (type == GL_FRAGMENT_SHADER)
             QMessageBox::critical(main_wnd, "Error compiling fragment shader", msg);
         else
             QMessageBox::critical(main_wnd, "Error compiling shader", msg);
