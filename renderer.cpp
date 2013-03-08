@@ -1,37 +1,21 @@
-#define GL_GLEXT_PROTOTYPES
-
 #include "opengl.hpp"
 
 #include <cmath>
-#include <cstdlib>
 
-#include <QtCore>
-#include <QtGui>
+#include <gtk/gtk.h>
+#include <gtk/gtkgl.h>
+#include <gdk/gdk.h>
 
-#include "color_buffer.hpp"
 #include "dialogs.hpp"
-#include "main_window.hpp"
 #include "renderer.hpp"
-#include "stage_tab.hpp"
-#include "texture_management.hpp"
-#include "trackable.hpp"
-#include "types.hpp"
-#include "uniform.hpp"
-#include "vertex_info.hpp"
 
 
-int ogl_maj, ogl_min;
+extern GtkWidget *main_wnd;
 
-static main_window *main_wnd;
 
-volatile bool gl_initialized = false;
-
-static unsigned compile_shader(GLenum type, const QString &str)
+static unsigned compile_shader(GLenum type, const char *src)
 {
     unsigned sh = glCreateShader(type);
-
-    QByteArray ba = str.toUtf8();
-    const char *src = ba.constData();
 
     glShaderSource(sh, 1, &src, NULL);
     glCompileShader(sh);
@@ -45,7 +29,7 @@ static unsigned compile_shader(GLenum type, const QString &str)
     glGetShaderiv(sh, GL_INFO_LOG_LENGTH, &illen);
 
     if (illen <= 1)
-        QMessageBox::critical(main_wnd, "Error compiling shader", "[error reason unknown]");
+        message_dialogs::error("Error compiling shader", "[error reason unknown]");
     else
     {
         char *msg = new char[illen + 1];
@@ -54,13 +38,13 @@ static unsigned compile_shader(GLenum type, const QString &str)
         msg[illen] = 0;
 
         if (type == GL_VERTEX_SHADER)
-            QMessageBox::critical(main_wnd, "Error compiling vertex shader", msg);
+            message_dialogs::error("Error compiling vertex shader", msg);
         else if (type == GL_GEOMETRY_SHADER)
-            QMessageBox::critical(main_wnd, "Error compiling geometry shader", msg);
+            message_dialogs::error("Error compiling geometry shader", msg);
         else if (type == GL_FRAGMENT_SHADER)
-            QMessageBox::critical(main_wnd, "Error compiling fragment shader", msg);
+            message_dialogs::error("Error compiling fragment shader", msg);
         else
-            QMessageBox::critical(main_wnd, "Error compiling shader", msg);
+            message_dialogs::error("Error compiling shader", msg);
 
         delete msg;
     }
@@ -70,23 +54,31 @@ static unsigned compile_shader(GLenum type, const QString &str)
 }
 
 
-renderer::renderer(main_window *rparent):
-    QGLWidget(rparent),
-    rotate_object(false),
-    frame_counter(0), elapsed_time(0.f),
-    tex_bound(NULL),
-    scale_display_fbo(false)
+static void resize_wrapper(GtkWidget *output, GdkEvent *evt, renderer *rnd)
 {
-    main_wnd = rparent;
+    (void)output;
 
-    meas_time.start();
+    rnd->resize(evt->configure.width, evt->configure.height);
+}
 
-    refresh_timer.setInterval(1000 / 60);
-    connect(&refresh_timer, SIGNAL(timeout()), this, SLOT(updateGL()));
+static void redraw_wrapper(GtkWidget *output, GdkEvent *evt, renderer *rnd)
+{
+    (void)output;
+    (void)evt;
 
-    refresh_timer.start();
+    rnd->redraw();
+}
 
-    mat_mem = malloc(3 * sizeof(mat4) + sizeof(mat3));
+
+renderer::renderer(void)
+{
+    output = gtk_drawing_area_new();
+
+    glconf = gdk_gl_config_new_by_mode((GdkGLConfigMode)(GDK_GL_MODE_RGBA | GDK_GL_MODE_DOUBLE | GDK_GL_MODE_DEPTH));
+    gtk_widget_set_gl_capability(output, glconf, NULL, TRUE, GDK_GL_RGBA_TYPE);
+
+
+    mat_mem = new char[3 * sizeof(mat4) + sizeof(mat3)];
     modelview    = new (reinterpret_cast<mat4 *>(mat_mem)    ) mat4;
     projection   = new (reinterpret_cast<mat4 *>(mat_mem) + 1) mat4;
     it_modelview = new (reinterpret_cast<mat4 *>(mat_mem) + 2) mat4;
@@ -95,31 +87,19 @@ renderer::renderer(main_window *rparent):
     modelview->translate(vec3(0.f, 0.f, -3.f));
 
 
-    add_trackable(modelview, "Modelview matrix");
-    add_trackable(projection, "Projection matrix");
-    add_trackable(it_modelview, "Inversed modelview matrix");
-    add_trackable(normal_mat, "Normal matrix");
-
-    add_trackable(&frame_counter, "Frame counter");
-    add_trackable(&elapsed_time, "Time elapsed in seconds");
-
-
-    connect(popup_menu.addAction("Set displayed te&xture"), SIGNAL(triggered()), this, SLOT(set_bound_texture()));
-}
-
-renderer::~renderer(void)
-{
-    free(mat_mem);
-
-    glDeleteBuffers(1, &tex_draw_buf);
-
-
-    // TODO: Remove trackables
+    g_signal_connect(output, "configure_event", G_CALLBACK(&resize_wrapper), this);
+    g_signal_connect(output, "expose_event",    G_CALLBACK(&redraw_wrapper), this);
 }
 
 
-void renderer::initializeGL(void)
+void renderer::initialize_gl(void)
 {
+    drawable = gtk_widget_get_gl_drawable(output);
+    context  = gtk_widget_get_gl_context (output);
+
+    begin_gl();
+
+
 #ifdef _WIN32
     glewInit();
 #endif
@@ -127,6 +107,9 @@ void renderer::initializeGL(void)
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &tmus);
 
     glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &vattrs);
+
+    ogl_maj = 0;
+    ogl_min = 0;
 
     glGetIntegerv(GL_MAJOR_VERSION, &ogl_maj);
     glGetIntegerv(GL_MINOR_VERSION, &ogl_min);
@@ -209,10 +192,11 @@ void renderer::initializeGL(void)
         tex_draw_vtx_attrib = glGetAttribLocation(tex_draw_prg, "vertex");
 
 
-    gl_initialized = true;
+    end_gl();
 }
 
-void renderer::resizeGL(int w, int h)
+
+void renderer::resize(int w, int h)
 {
     width = w; height = h;
 
@@ -223,450 +207,20 @@ void renderer::resizeGL(int w, int h)
     projection->d[11] = -1.f;
     projection->d[14] = (2.f * .1f * 100.f) / (.1f - 100.f);
     projection->d[15] = 0.f;
-
-    for (stage_tab *st: main_wnd->stage_tabs)
-    {
-        if (st->used_in_display)
-        {
-            for (color_buffer *cb: *st->outputs)
-                cb->resize(width, height);
-
-            st->depth->resize(width, height);
-
-            break;
-        }
-    }
 }
 
-void renderer::paintGL(void)
+
+void renderer::redraw(void)
 {
-    elapsed_time = meas_time.elapsed() / 1000.f;
-
-
-    if (!scale_display_fbo)
-        glViewport(0, 0, 1024, 1024);
-
-    for (stage_tab *st: main_wnd->stage_tabs)
-    {
-        if (!st->ready_to_roll)
-            continue;
-
-        if (scale_display_fbo)
-        {
-            if (st->used_in_display)
-                glViewport(0, 0, width, height);
-            else
-                glViewport(0, 0, 1024, 1024);
-        }
-
-
-        glActiveTexture(GL_TEXTURE0);
-
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, st->rpd.fbo);
-        GLenum *bufs = new GLenum[st->rpd.fbo_cb_bindings];
-        for (int i = 0; i < st->rpd.fbo_cb_bindings; i++)
-            bufs[i] = GL_COLOR_ATTACHMENT0 + i;
-        glDrawBuffers(st->rpd.fbo_cb_bindings, bufs);
-        delete[] bufs;
-
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        glUseProgram(st->rpd.prg);
-
-
-        reset_texture_bindings();
-
-
-        for (uniform *u: *st->uniforms)
-            u->assign();
-
-
-        if (ogl_maj >= 3)
-            glBindBuffer(GL_ARRAY_BUFFER, st->vertices->buffer);
-        else
-        {
-            glDisableClientState(GL_VERTEX_ARRAY);
-            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-            glDisableClientState(GL_COLOR_ARRAY);
-            glDisableClientState(GL_NORMAL_ARRAY);
-        }
-
-
-        uintptr_t ofs = 0;
-        for (vertex_attrib *va: st->vertices->attribs)
-        {
-            if (ogl_maj >= 3)
-            {
-                if (va->id >= 0)
-                    glVertexAttribPointer(va->id, va->epv, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<void *>(ofs));
-            }
-            else
-            {
-                if (va->name == "gl_Vertex")
-                {
-                    glEnableClientState(GL_VERTEX_ARRAY);
-                    glVertexPointer(va->epv, GL_FLOAT, 0, va->ptr());
-                }
-                else if (va->name == "gl_MultiTexCoord0")
-                {
-                    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-                    glTexCoordPointer(va->epv, GL_FLOAT, 0, va->ptr());
-                }
-                else if (va->name == "gl_Color")
-                {
-                    glEnableClientState(GL_COLOR_ARRAY);
-                    glColorPointer(va->epv, GL_FLOAT, 0, va->ptr());
-                }
-                else if (va->name == "gl_Normal")
-                {
-                    glEnableClientState(GL_NORMAL_ARRAY);
-                    glNormalPointer(GL_FLOAT, 0, va->ptr());
-                }
-            }
-
-            ofs += va->len() * va->epv * sizeof(float);
-        }
-
-        glDrawArrays(st->vertex_rendering_method, 0, st->vertices->attribs[0]->len());
-    }
-
-    glViewport(0, 0, width, height);
-
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    glDrawBuffer(GL_BACK);
-
+    begin_gl();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    end_gl();
 
-    if (tex_bound == NULL)
-        return;
-
-    glUseProgram(tex_draw_prg);
-
-    if (ogl_maj >= 3)
-    {
-        glBindBuffer(GL_ARRAY_BUFFER, tex_draw_buf);
-        glVertexAttribPointer(tex_draw_vtx_attrib, 4, GL_FLOAT, GL_FALSE, 0, NULL);
-    }
-    else
-    {
-        glEnableClientState(GL_VERTEX_ARRAY);
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-        glDisableClientState(GL_COLOR_ARRAY);
-        glDisableClientState(GL_NORMAL_ARRAY);
-        glVertexPointer(4, GL_FLOAT, 0, tex_draw_data);
-    }
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, tex_bound->id);
-    glUniform1i(tex_draw_tex_uniform, 0);
-
-    glDrawArrays(GL_QUADS, 0, 4);
-
-
-    frame_counter++;
-}
-
-void renderer::mousePressEvent(QMouseEvent *evt)
-{
-    if (evt->button() == Qt::LeftButton)
-    {
-        grabMouse(Qt::ClosedHandCursor);
-
-        rotate_object = true;
-
-        rot_l_x = evt->x();
-        rot_l_y = evt->y();
-    }
-    else if (evt->button() == Qt::RightButton)
-        popup_menu.popup(evt->globalPos());
-}
-
-void renderer::mouseReleaseEvent(QMouseEvent *evt)
-{
-    if (evt->button() == Qt::LeftButton)
-    {
-        releaseMouse();
-
-        rotate_object = false;
-    }
-}
-
-void renderer::mouseMoveEvent(QMouseEvent *evt)
-{
-    if (!rotate_object)
-        return;
-
-    modelview->rotate((evt->x() - rot_l_x) * (float)M_PI / 180.f, vec3(0.f, 1.f, 0.f));
-    modelview->rotate((evt->y() - rot_l_y) * (float)M_PI / 180.f, vec3(1.f, 0.f, 0.f));
-
-    *it_modelview = *modelview;
-    it_modelview->transposed_invert();
-
-    *normal_mat = *modelview;
-    normal_mat->transposed_invert();
-
-    rot_l_x = evt->x();
-    rot_l_y = evt->y();
+    swap_buffers();
 }
 
 
-void renderer::set_bound_texture(void)
+void renderer::fbo_display_setting_changed(bool new_state)
 {
-    bool ok;
-    managed_texture *mt = texture_dialog::get_tex(this, "Choose displayed texture", "Choose a texture to be displayed:", &ok);
-    if (!ok || (mt == tex_bound))
-        return;
-
-
-    bool found;
-
-    if (scale_display_fbo)
-    {
-        found = false;
-        for (stage_tab *st: main_wnd->stage_tabs)
-        {
-            for (color_buffer *cb: *st->outputs)
-            {
-                if (cb->mt == tex_bound) // pointer comparison should be OK (i.e., everything else would not)
-                {
-                    st->set_displayed(false);
-                    st->rpd.update_fbo(st);
-                    found = true;
-                    break;
-                }
-            }
-
-            if (found)
-                break;
-
-            if (st->depth->mt == tex_bound)
-            {
-                st->set_displayed(false);
-                st->rpd.update_fbo(st);
-                break;
-            }
-        }
-    }
-
-    if (tex_bound != NULL)
-        unuse_texture(tex_bound);
-    use_texture(mt);
-
-    tex_bound = mt;
-
-    if (scale_display_fbo)
-    {
-        found = false;
-        for (stage_tab *st: main_wnd->stage_tabs)
-        {
-            for (color_buffer *cb: *st->outputs)
-            {
-                if (cb->mt == tex_bound)
-                {
-                    st->set_displayed(true);
-                    st->rpd.update_fbo(st);
-                    found = true;
-                    break;
-                }
-            }
-
-            if (found)
-                break;
-
-            if (st->depth->mt == tex_bound)
-            {
-                st->set_displayed(true);
-                st->rpd.update_fbo(st);
-                break;
-            }
-        }
-    }
-}
-
-void renderer::fbo_display_setting_changed(int new_state)
-{
-    bool found = false;
-
-    if (new_state == Qt::Checked)
-    {
-        scale_display_fbo = true;
-
-        for (stage_tab *st: main_wnd->stage_tabs)
-        {
-            for (color_buffer *cb: *st->outputs)
-            {
-                if (cb->mt == tex_bound)
-                {
-                    st->set_displayed(true);
-                    st->rpd.update_fbo(st);
-                    found = true;
-                    break;
-                }
-            }
-
-            if (found)
-                break;
-
-            if (st->depth->mt == tex_bound)
-            {
-                st->set_displayed(true);
-                st->rpd.update_fbo(st);
-                break;
-            }
-        }
-    }
-    else
-    {
-        scale_display_fbo = false;
-
-        for (stage_tab *st: main_wnd->stage_tabs)
-        {
-            for (color_buffer *cb: *st->outputs)
-            {
-                if (cb->mt == tex_bound)
-                {
-                    st->set_displayed(false);
-                    st->rpd.update_fbo(st);
-                    found = true;
-                    break;
-                }
-            }
-
-            if (found)
-                break;
-
-            if (st->depth->mt == tex_bound)
-            {
-                st->set_displayed(false);
-                st->rpd.update_fbo(st);
-                break;
-            }
-        }
-    }
-}
-
-
-render_stage::render_stage(void)
-{
-    glGenFramebuffers(1, &fbo);
-    fbo_cb_bindings = 0;
-}
-
-render_stage::~render_stage(void)
-{
-    glDeleteFramebuffers(1, &fbo);
-}
-
-bool render_stage::update_shaders(stage_tab *st)
-{
-    unsigned vsh, fsh, gsh = 0;
-
-    vsh = compile_shader(GL_VERTEX_SHADER, st->vsh_edit.toPlainText());
-    if (!vsh)
-        return false;
-
-    fsh = compile_shader(GL_FRAGMENT_SHADER, st->fsh_edit.toPlainText());
-    if (!fsh)
-    {
-        glDeleteShader(vsh);
-        return false;
-    }
-
-    if (st->gsh_edit.isEnabled())
-    {
-        gsh = compile_shader(GL_GEOMETRY_SHADER, st->gsh_edit.toPlainText());
-        if (!gsh)
-        {
-            glDeleteShader(vsh);
-            glDeleteShader(fsh);
-            return false;
-        }
-    }
-
-
-    unsigned nprg = glCreateProgram();
-
-    glAttachShader(nprg, vsh);
-    glAttachShader(nprg, fsh);
-    if (gsh)
-        glAttachShader(nprg, gsh);
-
-    int i = 0;
-    for (color_buffer *cb: *st->outputs)
-    {
-        QByteArray ba = cb->name.toUtf8();
-        glBindFragDataLocation(nprg, i++, ba.constData());
-    }
-
-    glLinkProgram(nprg);
-
-    int status;
-    glGetProgramiv(nprg, GL_LINK_STATUS, &status);
-    if (status == GL_FALSE)
-    {
-        int illen;
-        glGetProgramiv(nprg, GL_INFO_LOG_LENGTH, &illen);
-
-        if (illen > 1)
-        {
-            char *msg = new char[illen + 1];
-
-            glGetProgramInfoLog(nprg, illen, NULL, msg);
-            msg[illen] = 0;
-
-            QMessageBox::critical(main_wnd, "Error linking program", msg);
-
-            delete msg;
-        }
-
-        glDeleteProgram(nprg);
-    }
-
-    int attribs;
-    glGetProgramiv(nprg, GL_ACTIVE_ATTRIBUTES, &attribs);
-
-    glDeleteShader(vsh);
-    glDeleteShader(fsh);
-    if (gsh)
-        glDeleteShader(fsh);
-
-    if (status == GL_TRUE)
-        prg = nprg;
-
-    return status;
-}
-
-void render_stage::update_fbo(stage_tab *st)
-{
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
-
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, st->depth->id, 0);
-
-    int bi = 0;
-
-    for (color_buffer *cb: *st->outputs)
-        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + bi++, GL_TEXTURE_2D, cb->id, 0);
-
-    for (int i = bi; i < fbo_cb_bindings; i++)
-        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, 0, 0);
-
-    fbo_cb_bindings = bi;
-}
-
-void render_stage::update_uniforms(stage_tab *st)
-{
-    for (uniform *u: *st->uniforms)
-    {
-        QByteArray ba = u->name.toUtf8();
-        u->id = glGetUniformLocation(prg, ba.constData());
-    }
-}
-
-void render_stage::update_vertex_buffers(stage_tab *st)
-{
-    for (vertex_attrib *va: st->vertices->attribs)
-    {
-        QByteArray ba = va->name.toUtf8();
-        va->id = glGetAttribLocation(prg, ba.constData());
-    }
+    (void)new_state;
 }

@@ -1,24 +1,24 @@
 #ifndef TEXTURE_MANAGEMENT_HPP
 #define TEXTURE_MANAGEMENT_HPP
 
-#include <QString>
+#include <list>
 
 
 class managed_texture
 {
     public:
-        managed_texture(unsigned id, const QString &name, bool ondemand = true);
+        managed_texture(unsigned id, const char *name, bool ondemand = true);
         ~managed_texture(void);
 
-        QString name;
+        char *name;
         unsigned id;
         int usage;
 
         bool ondemand;
 };
 
-managed_texture *add_texture(unsigned id, const QString &name, bool ondemand = false);
-managed_texture *load_texture(const QString &name);
+managed_texture *add_texture(unsigned id, const char *name, bool ondemand = false);
+managed_texture *load_texture(const char *name);
 void use_texture(managed_texture *tex);
 void unuse_texture(managed_texture *tex);
 void sweep_textures(void);
@@ -28,6 +28,6 @@ void reset_texture_bindings(void);
 int bind_texture(managed_texture *tex);
 
 
-extern QList<managed_texture *> textures;
+extern std::list<managed_texture *> textures;
 
 #endif

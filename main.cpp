@@ -1,32 +1,24 @@
 #include <cstdio>
 
-#include <QApplication>
-#include <QTextCodec>
+#include <gtk/gtk.h>
+#include <gdk/gdk.h>
+#include <gdk/gdkgl.h>
 
-#include "main_window.hpp"
+#include "window.hpp"
+
+
+main_window *main_wnd;
 
 
 int main(int argc, char *argv[])
 {
-    QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));
+    gtk_init(&argc, &argv);
+    gdk_gl_init(&argc, &argv);
 
-    QApplication app(argc, argv);
+    main_wnd = new main_window;
 
-    int res;
 
-    try
-    {
-        main_window wnd_main;
-        wnd_main.resize(800, 600);
-        wnd_main.show();
+    gtk_main();
 
-        res = app.exec();
-    }
-    catch (int exc)
-    {
-        res = 1;
-        fprintf(stderr, "Caught barely-implemented exception #%i.\n", exc);
-    }
-
-    return res;
+    return 0;
 }
