@@ -1,7 +1,7 @@
 #ifndef RENDERER_HPP
 #define RENDERER_HPP
 
-#include <gtk/gtk.h>
+#include <gtkmm.h>
 #include <gdk/gdk.h>
 #include <gdk/gdkgl.h>
 
@@ -9,7 +9,8 @@
 #include "types.hpp"
 
 
-class renderer
+class renderer:
+    public Gtk::DrawingArea
 {
     public:
         renderer(void);
@@ -20,16 +21,17 @@ class renderer
         inline void end_gl(void) { gdk_gl_drawable_gl_end(drawable); }
         inline void swap_buffers(void) { gdk_gl_drawable_swap_buffers(drawable); }
 
-        void resize(int w, int h);
-        void redraw(void);
-        void fbo_display_setting_changed(bool new_statE);
-
-        GtkWidget *output;
+        void fbo_display_setting_changed(bool new_state);
 
         int tmus, vattrs;
         int width, height;
 
         int ogl_maj, ogl_min;
+
+
+    protected:
+        virtual bool on_configure_event(GdkEventConfigure *evt);
+        virtual bool on_expose_event(GdkEventExpose *evt);
 
 
     private:

@@ -1,10 +1,13 @@
 #include <cstdio>
 
-#include <gtk/gtk.h>
+#include <gtkmm.h>
 #include <gdk/gdk.h>
 #include <gdk/gdkgl.h>
 
 #include "window.hpp"
+
+
+using namespace Gtk;
 
 
 main_window *main_wnd;
@@ -12,13 +15,15 @@ main_window *main_wnd;
 
 int main(int argc, char *argv[])
 {
-    gtk_init(&argc, &argv);
+    Main gtk(argc, argv);
+
     gdk_gl_init(&argc, &argv);
+
 
     main_wnd = new main_window;
 
 
-    gtk_main();
+    gtk.run(*main_wnd);
 
     return 0;
 }

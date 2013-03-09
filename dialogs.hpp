@@ -1,10 +1,12 @@
 #ifndef DIALOGS_HPP
 #define DIALOGS_HPP
 
-#include <gtk/gtk.h>
+#include <gtkmm.h>
+
+#include "window.hpp"
 
 
-extern GtkWidget *main_wnd;
+extern main_window *main_wnd;
 
 
 class message_dialogs
@@ -12,10 +14,10 @@ class message_dialogs
     public:
         static inline void error(const char *title, const char *text)
         {
-            GtkWidget *dialog = gtk_message_dialog_new(GTK_WINDOW(main_wnd), GtkDialogFlags(0), GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, text);
-            gtk_window_set_title(GTK_WINDOW(dialog), title);
+            Gtk::MessageDialog dialog(*main_wnd, text, Gtk::MESSAGE_ERROR);
+            dialog.set_title(title);
 
-            gtk_dialog_run(GTK_DIALOG(dialog));
+            dialog.run();
         }
 };
 

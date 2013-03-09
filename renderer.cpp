@@ -2,15 +2,12 @@
 
 #include <cmath>
 
-#include <gtk/gtk.h>
+#include <gtkmm.h>
 #include <gtk/gtkgl.h>
 #include <gdk/gdk.h>
 
 #include "dialogs.hpp"
 #include "renderer.hpp"
-
-
-extern GtkWidget *main_wnd;
 
 
 static unsigned compile_shader(GLenum type, const char *src)
@@ -54,28 +51,12 @@ static unsigned compile_shader(GLenum type, const char *src)
 }
 
 
-static void resize_wrapper(GtkWidget *output, GdkEvent *evt, renderer *rnd)
-{
-    (void)output;
-
-    rnd->resize(evt->configure.width, evt->configure.height);
-}
-
-static void redraw_wrapper(GtkWidget *output, GdkEvent *evt, renderer *rnd)
-{
-    (void)output;
-    (void)evt;
-
-    rnd->redraw();
-}
-
-
 renderer::renderer(void)
 {
-    output = gtk_drawing_area_new();
+    set_size_request(320, 200);
 
     glconf = gdk_gl_config_new_by_mode((GdkGLConfigMode)(GDK_GL_MODE_RGBA | GDK_GL_MODE_DOUBLE | GDK_GL_MODE_DEPTH));
-    gtk_widget_set_gl_capability(output, glconf, NULL, TRUE, GDK_GL_RGBA_TYPE);
+    gtk_widget_set_gl_capability(GTK_WIDGET(gobj()), glconf, NULL, true, GDK_GL_RGBA_TYPE);
 
 
     mat_mem = new char[3 * sizeof(mat4) + sizeof(mat3)];
@@ -85,17 +66,13 @@ renderer::renderer(void)
     normal_mat   = new (reinterpret_cast<mat4 *>(mat_mem) + 3) mat3;
 
     modelview->translate(vec3(0.f, 0.f, -3.f));
-
-
-    g_signal_connect(output, "configure_event", G_CALLBACK(&resize_wrapper), this);
-    g_signal_connect(output, "expose_event",    G_CALLBACK(&redraw_wrapper), this);
 }
 
 
 void renderer::initialize_gl(void)
 {
-    drawable = gtk_widget_get_gl_drawable(output);
-    context  = gtk_widget_get_gl_context (output);
+    drawable = gtk_widget_get_gl_drawable(GTK_WIDGET(gobj()));
+    context  = gtk_widget_get_gl_context (GTK_WIDGET(gobj()));
 
     begin_gl();
 
@@ -196,8 +173,10 @@ void renderer::initialize_gl(void)
 }
 
 
-void renderer::resize(int w, int h)
+bool renderer::on_configure_event(GdkEventConfigure *evt)
 {
+    int w = evt->width, h = evt->height;
+
     width = w; height = h;
 
     float f = 1.f / tanf(1.f / 6.f * (float)M_PI);
@@ -207,16 +186,22 @@ void renderer::resize(int w, int h)
     projection->d[11] = -1.f;
     projection->d[14] = (2.f * .1f * 100.f) / (.1f - 100.f);
     projection->d[15] = 0.f;
+
+    return true;
 }
 
 
-void renderer::redraw(void)
+bool renderer::on_expose_event(GdkEventExpose *evt)
 {
+    (void)evt;
+
     begin_gl();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     end_gl();
 
     swap_buffers();
+
+    return true;
 }
 
 

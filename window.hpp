@@ -3,13 +3,14 @@
 
 #include <list>
 
-#include <gtk/gtk.h>
+#include <gtkmm.h>
 
 #include "renderer.hpp"
 #include "stage_tab.hpp"
 
 
-class main_window
+class main_window:
+    public Gtk::Window
 {
     public:
         main_window(void);
@@ -19,14 +20,12 @@ class main_window
 
     private:
         void build_render_tab(void);
+        void fbo_display_setting_changed_wrapper(Gtk::CheckButton *checkbox);
 
-        GtkWidget *wnd;
-        GtkWidget *tab_container;
+        Gtk::Notebook tab_container;
 
-        renderer *rnd;
-        GtkWidget *render_page, *render_page_label;
-
-        GtkWidget *scale_display_fbo;
+        renderer rnd;
+        Gtk::VBox render_page;
 };
 
 #endif
