@@ -13,7 +13,7 @@ class main_window: public QWidget
     Q_OBJECT
 
     public:
-        main_window(void);
+        main_window(int force_ogl_maj, int force_ogl_min);
         ~main_window(void);
 
         QList<stage_tab *> stage_tabs;
@@ -23,7 +23,7 @@ class main_window: public QWidget
         void remove_stage(int index);
 
     private:
-        renderer render;
+        renderer *render;
         QCheckBox scale_display_fbo;
         QWidget *render_page;
         QPushButton add_stage_btn;

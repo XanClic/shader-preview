@@ -140,7 +140,7 @@ stage_tab::stage_tab(int sn, renderer *rdr, QWidget *rparent):
     }
     else
     {
-        vsh_edit.setPlainText("#version 110\n\nuniform mat4 projection, modelview;\n\nvoid main(void)\n{\n    gl_Position = projection * modelview * gl_Vertex;\n}");
+        vsh_edit.setPlainText("#version 110\n\nvoid main(void)\n{\n    gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;\n}");
         fsh_edit.setPlainText("#version 110\n\nvoid main(void)\n{\n    gl_FragColor = vec4(1.0, 0.25, 0.0, 1.0);\n}");
     }
 
@@ -148,13 +148,49 @@ stage_tab::stage_tab(int sn, renderer *rdr, QWidget *rparent):
 
     scan_shaders();
 
-    vertex_attrib_vec4 *va = static_cast<vertex_attrib_vec4 *>(vertices->attribs[0]);
-    va->values.push_back(vec4(-1.f,  1.f, 0.f, 1.f));
-    va->values.push_back(vec4(-1.f, -1.f, 0.f, 1.f));
-    va->values.push_back(vec4( 1.f, -1.f, 0.f, 1.f));
-    va->values.push_back(vec4( 1.f,  1.f, 0.f, 1.f));
+    // Standardlayout für GL 2.x; wem das nicht passt, der soll seine
+    // Definitionen halt umordnen oder sich eine OBJ von einem Quad bauen.
+    if (vertices->attribs.length() > 0)
+    {
+        // gl_Vertex
+        vertex_attrib_vec4 *va = static_cast<vertex_attrib_vec4 *>(vertices->attribs[0]);
+        va->values.push_back(vec4(-1.f,  1.f, 0.f, 1.f));
+        va->values.push_back(vec4(-1.f, -1.f, 0.f, 1.f));
+        va->values.push_back(vec4( 1.f, -1.f, 0.f, 1.f));
+        va->values.push_back(vec4( 1.f,  1.f, 0.f, 1.f));
+    }
 
-    for (int i = 1; i < vertices->attribs.length(); i++)
+    if (vertices->attribs.length() > 1)
+    {
+        // gl_MultiTexCoord0
+        vertex_attrib_vec4 *va = static_cast<vertex_attrib_vec4 *>(vertices->attribs[1]);
+        va->values.push_back(vec4(0.f, 1.f, 0.f, 0.f));
+        va->values.push_back(vec4(0.f, 0.f, 0.f, 0.f));
+        va->values.push_back(vec4(1.f, 0.f, 0.f, 0.f));
+        va->values.push_back(vec4(1.f, 1.f, 0.f, 0.f));
+    }
+
+    if (vertices->attribs.length() > 2)
+    {
+        // gl_Color
+        vertex_attrib_vec4 *va = static_cast<vertex_attrib_vec4 *>(vertices->attribs[2]);
+        va->values.push_back(vec4(1.f, .25f, 0.f, 1.f));
+        va->values.push_back(vec4(1.f, .25f, 0.f, 1.f));
+        va->values.push_back(vec4(1.f, .25f, 0.f, 1.f));
+        va->values.push_back(vec4(1.f, .25f, 0.f, 1.f));
+    }
+
+    if (vertices->attribs.length() > 3)
+    {
+        // gl_Normal
+        vertex_attrib_vec4 *va = static_cast<vertex_attrib_vec4 *>(vertices->attribs[3]);
+        va->values.push_back(vec4(0.f, 0.f, 1.f, 0.f));
+        va->values.push_back(vec4(0.f, 0.f, 1.f, 0.f));
+        va->values.push_back(vec4(0.f, 0.f, 1.f, 0.f));
+        va->values.push_back(vec4(0.f, 0.f, 1.f, 0.f));
+    }
+
+    for (int i = 4; i < vertices->attribs.length(); i++)
     {
         vertex_attrib *nva = vertices->attribs[i];
 
@@ -170,11 +206,14 @@ stage_tab::stage_tab(int sn, renderer *rdr, QWidget *rparent):
         }
     }
 
-    (*uniforms)[0]->track = render->projection;
-    (*uniforms)[1]->track = render->modelview;
+    if (ogl_maj > 2)
+    {
+        (*uniforms)[0]->track = render->projection;
+        (*uniforms)[1]->track = render->modelview;
 
-    (*uniforms)[0]->valstr = "Built-in: Projection matrix";
-    (*uniforms)[1]->valstr = "Built-in: Modelview matrix";
+        (*uniforms)[0]->valstr = "Built-in: Projection matrix";
+        (*uniforms)[1]->valstr = "Built-in: Modelview matrix";
+    }
 
     scan_shaders();
 

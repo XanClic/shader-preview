@@ -70,8 +70,9 @@ static unsigned compile_shader(GLenum type, const QString &str)
 }
 
 
-renderer::renderer(main_window *rparent):
-    QGLWidget(rparent),
+renderer::renderer(const QGLFormat &glf, main_window *rparent):
+    QGLWidget(glf, rparent),
+    gl_format(glf),
     rotate_object(false),
     frame_counter(0), elapsed_time(0.f),
     tex_bound(NULL),
@@ -132,6 +133,13 @@ void renderer::initializeGL(void)
     glGetIntegerv(GL_MINOR_VERSION, &ogl_min);
 
 
+    if ((ogl_maj > 2) && (gl_format.majorVersion() == 2))
+    {
+        ogl_maj = gl_format.majorVersion();
+        ogl_min = gl_format.minorVersion();
+    }
+
+
     for (int i = 0; i < tmus; i++)
     {
         glActiveTexture(GL_TEXTURE0 + i);
@@ -177,7 +185,7 @@ void renderer::initializeGL(void)
         ptvs = compile_shader(GL_VERTEX_SHADER, "#version 130\nin vec4 vertex;\nout vec2 tex_coord;\nvoid main(void){gl_Position = vertex; tex_coord = vertex.xy * vec2(.5, .5) + vec2(.5, .5);}");
         if (!ptvs) throw 42; // FIXME
 
-        ptfs = compile_shader(GL_FRAGMENT_SHADER, "#version 130\nin vec2 tex_coord\n;out vec4 color;\nuniform sampler2D tex;\nvoid main(void){color = texture2D(tex, tex_coord);}");
+        ptfs = compile_shader(GL_FRAGMENT_SHADER, "#version 130\nin vec2 tex_coord;\nout vec4 color;\nuniform sampler2D tex;\nvoid main(void){color = texture2D(tex, tex_coord);}");
         if (!ptfs) throw 42; // FIXME
     }
     else
@@ -209,6 +217,16 @@ void renderer::initializeGL(void)
         tex_draw_vtx_attrib = glGetAttribLocation(tex_draw_prg, "vertex");
 
 
+    if (ogl_maj < 3)
+    {
+        glMatrixMode(GL_PROJECTION);
+        glLoadMatrixf(projection->d);
+
+        glMatrixMode(GL_MODELVIEW);
+        glLoadMatrixf(modelview->d);
+    }
+
+
     gl_initialized = true;
 }
 
@@ -235,6 +253,12 @@ void renderer::resizeGL(int w, int h)
 
             break;
         }
+    }
+
+    if (ogl_maj < 3)
+    {
+        glMatrixMode(GL_PROJECTION);
+        glLoadMatrixf(projection->d);
     }
 }
 
@@ -407,6 +431,13 @@ void renderer::mouseMoveEvent(QMouseEvent *evt)
 
     rot_l_x = evt->x();
     rot_l_y = evt->y();
+
+
+    if (ogl_maj < 3)
+    {
+        glMatrixMode(GL_MODELVIEW);
+        glLoadMatrixf(modelview->d);
+    }
 }
 
 

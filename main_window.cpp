@@ -10,9 +10,8 @@ extern volatile bool gl_initialized;
 
 static int stage_numbers = 1;
 
-main_window::main_window(void):
+main_window::main_window(int force_ogl_maj, int force_ogl_min):
     QWidget(NULL),
-    render(this),
     scale_display_fbo("Render displayed FBO in appropriate resolution"),
     add_stage_btn("Add stage")
 {
@@ -33,16 +32,23 @@ main_window::main_window(void):
     connect(tabs, SIGNAL(tabCloseRequested(int)), this, SLOT(remove_stage(int)));
 
 
+    QGLFormat gl_format(QGLFormat::defaultFormat());
+    if ((force_ogl_maj > 0) && (force_ogl_min > 0))
+        gl_format.setVersion(force_ogl_maj, force_ogl_min);
+
+    render = new renderer(gl_format, this);
+
+
     scale_display_fbo.setCheckState(Qt::Checked);
 
-    connect(&scale_display_fbo, SIGNAL(stateChanged(int)), &render, SLOT(fbo_display_setting_changed(int)));
+    connect(&scale_display_fbo, SIGNAL(stateChanged(int)), render, SLOT(fbo_display_setting_changed(int)));
 
 
     render_layout = new QVBoxLayout;
     main_layout = new QVBoxLayout;
 
 
-    render_layout->addWidget(&render);
+    render_layout->addWidget(render);
     render_layout->addWidget(&scale_display_fbo);
     render_page->setLayout(render_layout);
 
@@ -54,15 +60,15 @@ main_window::main_window(void):
     while (!gl_initialized)
         QCoreApplication::processEvents();
 
-    stage_tab *st1 = new stage_tab(0, &render);
+    stage_tab *st1 = new stage_tab(0, render);
     stage_tabs.push_back(st1);
 
     tabs->addTab(st1, "Stage 0");
 
 
-    render.tex_bound = (*st1->outputs)[0]->mt;
+    render->tex_bound = (*st1->outputs)[0]->mt;
 
-    render.fbo_display_setting_changed(Qt::Checked);
+    render->fbo_display_setting_changed(Qt::Checked);
 }
 
 main_window::~main_window(void)
@@ -74,7 +80,7 @@ main_window::~main_window(void)
 
 void main_window::add_stage(void)
 {
-    stage_tab *nst = new stage_tab(stage_numbers, &render);
+    stage_tab *nst = new stage_tab(stage_numbers, render);
     stage_tabs.push_back(nst);
 
     tabs->addTab(nst, "Stage " + QString::number(stage_numbers++));
@@ -89,7 +95,7 @@ void main_window::remove_stage(int index)
 
     for (color_buffer *cb: *st->outputs)
     {
-        if (cb->mt == render.tex_bound)
+        if (cb->mt == render->tex_bound)
         {
             QMessageBox::critical(this, "Stage bound", "One output texture of this stage is currently being displayed.\n\nThus it cannot be removed.");
             return;
