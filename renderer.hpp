@@ -26,7 +26,10 @@ class renderer:
         int tmus, vattrs;
         int width, height;
 
-        int ogl_maj, ogl_min;
+        mat4 *modelview, *projection, *it_modelview;
+        mat3 *normal_mat;
+
+        managed_texture *tex_bound;
 
 
     protected:
@@ -42,14 +45,29 @@ class renderer:
 
         void *mat_mem;
 
-        mat4 *modelview, *projection, *it_modelview;
-        mat3 *normal_mat;
-
         vec4 tex_draw_data[4];
         unsigned tex_draw_buf, tex_draw_prg, tex_draw_tex_uniform, tex_draw_vtx_attrib;
-        managed_texture *tex_bound;
 
         bool scale_display_fbo;
+};
+
+
+class stage_tab;
+
+class render_stage
+{
+    public:
+        render_stage(void);
+        ~render_stage(void);
+
+        bool update_shaders(stage_tab *st);
+        void update_fbo(stage_tab *st);
+        void update_uniforms(stage_tab *st);
+        void update_vertex_buffers(stage_tab *st);
+
+        unsigned prg, fbo;
+
+        int fbo_cb_bindings;
 };
 
 #endif

@@ -38,6 +38,8 @@ namespace Mtk
                 }
             }
 
+            Gtk::HPaned &gtk(void) { return *panes.front(); }
+
             operator Gtk::HPaned &(void) { return *panes.front(); }
 
 

@@ -3,22 +3,24 @@
 
 #include <list>
 
+#include <gtkmm.h>
+
 
 class managed_texture
 {
     public:
-        managed_texture(unsigned id, const char *name, bool ondemand = true);
+        managed_texture(unsigned id, const Glib::ustring &name, bool ondemand = true);
         ~managed_texture(void);
 
-        char *name;
+        Glib::ustring name;
         unsigned id;
         int usage;
 
         bool ondemand;
 };
 
-managed_texture *add_texture(unsigned id, const char *name, bool ondemand = false);
-managed_texture *load_texture(const char *name);
+managed_texture *add_texture(unsigned id, const Glib::ustring &name, bool ondemand = false);
+managed_texture *load_texture(const Glib::ustring &name);
 void use_texture(managed_texture *tex);
 void unuse_texture(managed_texture *tex);
 void sweep_textures(void);

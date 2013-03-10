@@ -18,10 +18,10 @@ namespace Mtk
                 if (children == 1)
                 {
                     panes.push_back(new Gtk::VPaned);
-                    panes.back()->pack1(widget, true, true);
+                    panes.back()->pack1(widget, true, false);
                 }
                 else if (children == 2)
-                    panes.back()->pack2(widget, true, true);
+                    panes.back()->pack2(widget, true, false);
                 else
                 {
                     Gtk::Widget *old_last = panes.back()->get_child2();
@@ -30,13 +30,15 @@ namespace Mtk
                     old_last->reference();
                     panes.back()->remove(*old_last);
 
-                    panes.back()->pack2(*new_paned, true, true);
+                    panes.back()->pack2(*new_paned, true, false);
                     panes.push_back(new_paned);
 
-                    new_paned->pack1(*old_last, true, true);
-                    new_paned->pack2(widget,    true, true);
+                    new_paned->pack1(*old_last, true, false);
+                    new_paned->pack2(widget,    true, false);
                 }
             }
+
+            Gtk::VPaned &gtk(void) { return *panes.front(); }
 
             operator Gtk::VPaned &(void) { return *panes.front(); }
 

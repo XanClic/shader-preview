@@ -14,6 +14,7 @@ class main_window:
 {
     public:
         main_window(void);
+        ~main_window(void);
 
         std::list<stage_tab *> stage_tabs;
 

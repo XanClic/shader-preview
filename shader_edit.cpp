@@ -12,18 +12,18 @@ static void populate_popup(Menu *menu);
 
 shader_edit::shader_edit(void)
 {
+    set_policy(POLICY_AUTOMATIC, POLICY_AUTOMATIC);
+    set_border_width(2);
+
     FontDescription font("monospace 8");
 
     edit.set_wrap_mode(WRAP_NONE);
     edit.modify_font(font);
 
-    add(edit);
-
-
-    set_policy(POLICY_AUTOMATIC, POLICY_AUTOMATIC);
-
-
     edit.signal_populate_popup().connect(sigc::ptr_fun(populate_popup));
+
+
+    add(edit);
 }
 
 

@@ -10,6 +10,8 @@ class shader_edit:
     public:
         shader_edit(void);
 
+        Glib::RefPtr<Gtk::TextBuffer> buffer(void) { return edit.get_buffer(); }
+
 
     private:
         Gtk::TextView edit;
