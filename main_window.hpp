@@ -23,12 +23,13 @@ class main_window: public QWidget
         void remove_stage(int index);
 
     private:
-        QVBoxLayout main_layout, render_layout;
-        QTabWidget tabs;
-        QWidget render_page;
         renderer render;
-        QPushButton add_stage_btn;
         QCheckBox scale_display_fbo;
+        QWidget *render_page;
+        QPushButton add_stage_btn;
+        QTabWidget *tabs;
+
+        QVBoxLayout *render_layout, *main_layout;
 };
 
 #endif

@@ -36,13 +36,15 @@ class stage_tab: public QWidget
         /// Scans the shaders contained in the edit widgets for variables
         void scan_shaders(void);
 
-        QHBoxLayout sub_layout[2];
-        QVBoxLayout main_layout, gsh_layout, vtx_layout;
+        QCheckBox gsh_enable;
+        QComboBox vtx_type;
         shader_edit vsh_edit, gsh_edit, fsh_edit;
         QPushButton sh_apply;
         popup_tree uniform_tree, vertex_tree, buffer_tree;
-        QCheckBox gsh_enable;
-        QComboBox vtx_type;
+
+        QVBoxLayout *gsh_layout, *vtx_layout;
+        QHBoxLayout *sub_layout[2];
+        QVBoxLayout *main_layout;
 
         QList<uniform *> *uniforms;
         vertex_info *vertices;

@@ -20,10 +20,10 @@
 
 stage_tab::stage_tab(int sn, renderer *rdr, QWidget *rparent):
     QWidget(rparent),
+    gsh_enable("Enable &geometry shader"), vtx_type(this),
     vsh_edit(this), gsh_edit(this), fsh_edit(this),
     sh_apply("Appl&y shaders", this),
     uniform_tree(this), vertex_tree(this), buffer_tree(this),
-    gsh_enable("Enable &geometry shader"), vtx_type(this),
     vertex_rendering_method(GL_QUADS), stage_number(sn),
     render(rdr),
     ready_to_roll(false), used_in_display(false)
@@ -85,25 +85,32 @@ stage_tab::stage_tab(int sn, renderer *rdr, QWidget *rparent):
 
 
 
-    gsh_layout.addWidget(&gsh_edit);
-    gsh_layout.addWidget(&gsh_enable);
+    gsh_layout = new QVBoxLayout;
+    vtx_layout = new QVBoxLayout;
+    sub_layout[0] = new QHBoxLayout;
+    sub_layout[1] = new QHBoxLayout;
+    main_layout = new QVBoxLayout;
 
-    sub_layout[0].addWidget(&vsh_edit);
-    sub_layout[0].addLayout(&gsh_layout);
-    sub_layout[0].addWidget(&fsh_edit);
 
-    vtx_layout.addWidget(&vertex_tree);
-    vtx_layout.addWidget(&vtx_type);
+    gsh_layout->addWidget(&gsh_edit);
+    gsh_layout->addWidget(&gsh_enable);
 
-    sub_layout[1].addLayout(&vtx_layout);
-    sub_layout[1].addWidget(&buffer_tree);
+    sub_layout[0]->addWidget(&vsh_edit);
+    sub_layout[0]->addLayout(gsh_layout);
+    sub_layout[0]->addWidget(&fsh_edit);
 
-    main_layout.addLayout(&sub_layout[0]);
-    main_layout.addWidget(&sh_apply);
-    main_layout.addWidget(&uniform_tree);
-    main_layout.addLayout(&sub_layout[1]);
+    vtx_layout->addWidget(&vertex_tree);
+    vtx_layout->addWidget(&vtx_type);
 
-    setLayout(&main_layout);
+    sub_layout[1]->addLayout(vtx_layout);
+    sub_layout[1]->addWidget(&buffer_tree);
+
+    main_layout->addLayout(sub_layout[0]);
+    main_layout->addWidget(&sh_apply);
+    main_layout->addWidget(&uniform_tree);
+    main_layout->addLayout(sub_layout[1]);
+
+    setLayout(main_layout);
 
 
     uniforms = new QList<uniform *>;
