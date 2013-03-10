@@ -20,7 +20,7 @@ class renderer: public QGLWidget
     Q_OBJECT
 
     public:
-        renderer(main_window *parent);
+        renderer(const QGLFormat &format, main_window *parent);
         ~renderer(void);
 
         int tmus, vattrs;
@@ -39,6 +39,8 @@ class renderer: public QGLWidget
         void mouseMoveEvent(QMouseEvent *evt);
 
     private:
+        QGLFormat gl_format;
+
         QMenu popup_menu;
         QTimer refresh_timer;
         bool rotate_object;
