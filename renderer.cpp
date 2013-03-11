@@ -73,7 +73,10 @@ static unsigned compile_shader(GLenum type, const QString &str)
 renderer::renderer(const QGLFormat &glf, main_window *rparent):
     QGLWidget(glf, rparent),
     gl_format(glf),
-    rotate_object(false),
+    rotate_object(false), move_object(false),
+    radius(3.f),
+    phi(0.f), delta(0.f),
+    forward(0.f, 0.f, -1.f), right(1.f, 0.f, 0.f), down(0.f, -1.f, 0.f),
     frame_counter(0), elapsed_time(0.f),
     tex_bound(NULL),
     scale_display_fbo(false)
@@ -402,7 +405,15 @@ void renderer::mousePressEvent(QMouseEvent *evt)
         rot_l_y = evt->y();
     }
     else if (evt->button() == Qt::RightButton)
-        popup_menu.popup(evt->globalPos());
+    {
+        grabMouse(Qt::ClosedHandCursor);
+
+        move_object = true;
+        moved = false;
+
+        rot_l_x = evt->x();
+        rot_l_y = evt->y();
+    }
 }
 
 void renderer::mouseReleaseEvent(QMouseEvent *evt)
@@ -413,24 +424,82 @@ void renderer::mouseReleaseEvent(QMouseEvent *evt)
 
         rotate_object = false;
     }
+    else if (evt->button() == Qt::RightButton)
+    {
+        releaseMouse();
+
+        move_object = false;
+
+        if (!moved)
+            popup_menu.popup(evt->globalPos());
+    }
 }
 
 void renderer::mouseMoveEvent(QMouseEvent *evt)
 {
-    if (!rotate_object)
+    float dx = (evt->x() - rot_l_x) / 150.f;
+    float dy = (evt->y() - rot_l_y) / 150.f;
+
+    rot_l_x = evt->x();
+    rot_l_y = evt->y();
+
+
+    if (rotate_object)
+    {
+        phi   += dx;
+        delta += dy;
+
+        while (phi >= 2.f * (float)M_PI)
+            phi -= 2.f * (float)M_PI;
+
+        while (phi < 0.f)
+            phi += 2.f * (float)M_PI;
+
+        while (delta >= (float)M_PI)
+            delta -= 2.f * (float)M_PI;
+
+        while (delta <= -(float)M_PI)
+            delta += 2.f * (float)M_PI;
+
+        right = vec3(cosf(phi), 0.f, sinf(phi));
+        forward = vec3(cosf(delta) * sinf(phi), -sinf(delta), -cosf(delta) * cosf(phi));
+        down = -right ^ forward;
+    }
+    else if (move_object)
+    {
+        position += (right * dx + down * dy) * radius;
+        moved = true;
+    }
+    else
         return;
 
-    modelview->rotate((evt->x() - rot_l_x) * (float)M_PI / 180.f, vec3(0.f, 1.f, 0.f));
-    modelview->rotate((evt->y() - rot_l_y) * (float)M_PI / 180.f, vec3(1.f, 0.f, 0.f));
+
+    recalc_projection();
+}
+
+void renderer::wheelEvent(QWheelEvent *evt)
+{
+    if (!move_object)
+        radius *= exp2f(-evt->delta() / 420.f);
+    else
+    {
+        position += forward * (-evt->delta() / 840.f) * radius;
+        moved = true;
+    }
+
+    recalc_projection();
+}
+
+void renderer::recalc_projection(void)
+{
+    *modelview = mat4::translation(vec3(0.f, 0.f, -radius)).rotated(delta, vec3(1.f, 0.f, 0.f)).rotated(phi, vec3(0.f, 1.f, 0.f)).translated(position);
+
 
     *it_modelview = *modelview;
     it_modelview->transposed_invert();
 
     *normal_mat = *modelview;
     normal_mat->transposed_invert();
-
-    rot_l_x = evt->x();
-    rot_l_y = evt->y();
 
 
     if (ogl_maj < 3)

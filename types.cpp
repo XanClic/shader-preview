@@ -121,7 +121,7 @@ mat4 &mat4::operator*=(const mat4 &m)
 }
 
 
-mat4 mat4::operator*(const mat4 &om)
+mat4 mat4::operator*(const mat4 &om) const
 {
     mat4 m(*this);
     m *= om;
@@ -154,6 +154,17 @@ mat4 &mat4::translate(const vec3 &vec)
 #endif
 
     return *this;
+}
+
+mat4 mat4::translated(const vec3 &vec) const
+{
+    return mat4(*reinterpret_cast<const vec4 *>(&d[ 0]),
+                *reinterpret_cast<const vec4 *>(&d[ 4]),
+                *reinterpret_cast<const vec4 *>(&d[ 8]),
+                *reinterpret_cast<const vec4 *>(&d[12]) +
+                *reinterpret_cast<const vec4 *>(&d[ 0]) * vec.x +
+                *reinterpret_cast<const vec4 *>(&d[ 4]) * vec.y +
+                *reinterpret_cast<const vec4 *>(&d[ 8]) * vec.z);
 }
 
 mat4 &mat4::rotate(float angle, const vec3 &axis)
@@ -212,6 +223,61 @@ mat4 &mat4::rotate(float angle, const vec3 &axis)
     return *this;
 }
 
+mat4 mat4::rotated(float angle, const vec3 &axis) const
+{
+    float x = axis.x, y = axis.y, z = axis.z;
+    // this should actually be exact
+    float rlen = 1.f / sqrtf(x * x + y * y + z * z);
+
+    x *= rlen;
+    y *= rlen;
+    z *= rlen;
+
+    float s = sinf(angle);
+    float c = cosf(angle);
+    float omc = 1.f - c;
+
+#ifdef X64_ASSEMBLY
+    float rm[16] = {
+        x * x * omc +     c, x * y * omc - z * s, x * z * omc + y * s, 0.f,
+        y * x * omc + z * s, y * y * omc +     c, y * z * omc - x * s, 0.f,
+        z * x * omc - y * s, z * y * omc + x * s, z * z * omc +     c, 0.f,
+                        0.f,                 0.f,                 0.f, 1.f
+    };
+
+    return *this * *reinterpret_cast<mat4 *>(rm);
+#else
+    float _00 = x * x * omc +     c;
+    float _01 = x * y * omc - z * s;
+    float _02 = x * z * omc + y * s;
+
+    float _10 = y * x * omc + z * s;
+    float _11 = y * y * omc +     c;
+    float _12 = y * z * omc - x * s;
+
+    float _20 = z * x * omc - y * s;
+    float _21 = z * y * omc + x * s;
+    float _22 = z * z * omc +     c;
+
+    float n00 = d[ 0] * _00 + d[ 4] * _10 + d[ 8] * _20;
+    float n01 = d[ 1] * _00 + d[ 5] * _10 + d[ 9] * _20;
+    float n02 = d[ 2] * _00 + d[ 6] * _10 + d[10] * _20;
+
+    float n04 = d[ 0] * _01 + d[ 4] * _11 + d[ 8] * _21;
+    float n05 = d[ 1] * _01 + d[ 5] * _11 + d[ 9] * _21;
+    float n06 = d[ 2] * _01 + d[ 6] * _11 + d[10] * _21;
+
+    float n08 = d[ 0] * _02 + d[ 4] * _12 + d[ 8] * _22;
+    float n09 = d[ 1] * _02 + d[ 5] * _12 + d[ 9] * _22;
+    float n10 = d[ 2] * _02 + d[ 6] * _12 + d[10] * _22;
+
+    return mat4(vec4( n00 ,  n01 ,  n02 , d[ 3]),
+                vec4( n04 ,  n05 ,  n06 , d[ 7]),
+                vec4( n08 ,  n09 ,  n10 , d[11]),
+                vec4(d[12], d[13], d[14], d[15]));
+#endif
+}
+
 mat4 &mat4::scale(const vec3 &fac)
 {
 #ifdef X64_ASSEMBLY
@@ -236,6 +302,14 @@ mat4 &mat4::scale(const vec3 &fac)
 #endif
 
     return *this;
+}
+
+mat4 mat4::scaled(const vec3 &fac) const
+{
+    return mat4(*reinterpret_cast<const vec4 *>(&d[ 0]) * fac.x,
+                *reinterpret_cast<const vec4 *>(&d[ 4]) * fac.y,
+                *reinterpret_cast<const vec4 *>(&d[ 8]) * fac.z,
+                *reinterpret_cast<const vec4 *>(&d[12]));
 }
 
 
@@ -547,4 +621,25 @@ void mat4::transposed_invert(void)
 
     memcpy(d, nd, sizeof(nd));
 #endif
+}
+
+
+vec4 mat4::operator*(const vec4 &v) const
+{
+    return vec4(
+        v.d[0] * d[0] + v.d[1] * d[4] + v.d[2] * d[ 8] + v.d[3] * d[12],
+        v.d[0] * d[1] + v.d[1] * d[5] + v.d[2] * d[ 9] + v.d[3] * d[13],
+        v.d[0] * d[2] + v.d[1] * d[6] + v.d[2] * d[10] + v.d[3] * d[14],
+        v.d[0] * d[3] + v.d[1] * d[7] + v.d[2] * d[11] + v.d[3] * d[15]
+    );
+}
+
+
+vec3 mat3::operator*(const vec3 &v) const
+{
+    return vec3(
+        v.d[0] * d[0] + v.d[1] * d[3] + v.d[2] * d[6],
+        v.d[0] * d[1] + v.d[1] * d[4] + v.d[2] * d[7],
+        v.d[0] * d[2] + v.d[1] * d[5] + v.d[2] * d[8]
+    );
 }
