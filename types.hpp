@@ -27,6 +27,13 @@ class vec4
         { return d[i]; }
 
 
+        vec4 operator*(float scale) const
+        { return vec4(x * scale, y * scale, z * scale, w * scale); }
+
+        vec4 operator+(const vec4 &ov) const
+        { return vec4(x + ov.x, y + ov.y, z + ov.z, w + ov.w); }
+
+
         union
         {
             struct { float x, y, z, w; };
@@ -48,6 +55,9 @@ class vec3
         vec3(const vec3 &v)
         { memcpy(d, v.d, sizeof(d)); }
 
+        vec3(const vec4 &v)
+        { memcpy(d, v.d, sizeof(d)); }
+
         vec3(void)
         { x = 0.f; y = 0.f; z = 0.f; }
 
@@ -57,6 +67,22 @@ class vec3
 
         float &operator[](int i)
         { return d[i]; }
+
+
+        vec3 operator*(float scale) const
+        { return vec3(x * scale, y * scale, z * scale); }
+
+        vec3 operator+(const vec3 &ov) const
+        { return vec3(x + ov.x, y + ov.y, z + ov.z); }
+
+        vec3 &operator+=(const vec3 &ov)
+        { x += ov.x; y += ov.y; z += ov.z; return *this; }
+
+        vec3 operator-(void) const
+        { return vec3(-x, -y, -z); }
+
+        vec3 operator^(const vec3 &ov) const
+        { return vec3(y * ov.z - z * ov.y, z * ov.x - x * ov.z, x * ov.y - y * ov.x); }
 
 
         union
@@ -129,15 +155,24 @@ class mat4
 
         mat4 &operator*=(const mat4 &m);
 
-        mat4 operator*(const mat4 &m);
+        mat4 operator*(const mat4 &m) const;
+        vec4 operator*(const vec4 &v) const;
 
 
         mat4 &translate(const vec3 &vec);
         mat4 &rotate(float angle, const vec3 &axis);
         mat4 &scale(const vec3 &fac);
 
+        mat4 translated(const vec3 &vec) const;
+        mat4 rotated(float angle, const vec3 &axis) const;
+        mat4 scaled(const vec3 &fac) const;
+
         float det(void);
         void transposed_invert(void);
+
+
+        static mat4 translation(const vec3 &vec)
+        { return mat4(vec4(1.f, 0.f, 0.f, 0.f), vec4(0.f, 1.f, 0.f, 0.f), vec4(0.f, 0.f, 1.f, 0.f), vec4(vec.x, vec.y, vec.z, 1.f)); }
 
 
         float d[16];
@@ -174,6 +209,9 @@ class mat3
 
         mat3 &operator=(const mat4 &m)
         { memcpy(&d[0], &m.d[0], sizeof(d[0]) * 3); memcpy(&d[3], &m.d[4], sizeof(d[3]) * 3); memcpy(&d[6], &m.d[8], sizeof(d[6]) * 3); return *this; }
+
+
+        vec3 operator*(const vec3 &v) const;
 
 
         float det(void);

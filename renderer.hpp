@@ -37,14 +37,21 @@ class renderer: public QGLWidget
         void mousePressEvent(QMouseEvent *evt);
         void mouseReleaseEvent(QMouseEvent *evt);
         void mouseMoveEvent(QMouseEvent *evt);
+        void wheelEvent(QWheelEvent *evt);
 
     private:
+        void recalc_projection(void);
+
         QGLFormat gl_format;
 
         QMenu popup_menu;
         QTimer refresh_timer;
-        bool rotate_object;
+        bool rotate_object, move_object, moved;
         int rot_l_x, rot_l_y;
+        float radius;
+        float phi, delta;
+
+        vec3 position, forward, right, down;
 
         void *mat_mem;
 
